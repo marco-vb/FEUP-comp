@@ -10,29 +10,59 @@ LCURLY : '{' ;
 RCURLY : '}' ;
 LPAREN : '(' ;
 RPAREN : ')' ;
+LBRACKET : '[';
+RBRACKET : ']';
 MUL : '*' ;
 ADD : '+' ;
+DIV : '/';
+SUB : '-';
+DOT : '.' ;
+COMMA : ',';
+OR : '||' ;
+AND : '&&' ;
+LT : '<' ;
+GT : '>' ;
+LE : '<=' ;
+GE : '>=' ;
+EQ : '==' ;
 
 CLASS : 'class' ;
 INT : 'int' ;
+STRING : 'String' ;
+STATIC : 'static' ;
+VOID : 'void' ;
+BOOLEAN : 'boolean' ;
 PUBLIC : 'public' ;
 RETURN : 'return' ;
+IMPORT : 'import';
+EXTENDS : 'extends';
+IF : 'if';
+ELSE : 'else';
+WHILE : 'while';
+NEW : 'new' ;
+TRUE : 'true' ;
+FALSE : 'false' ;
+NOT : '!' ;
 
-INTEGER : [0-9] ;
-ID : [a-zA-Z]+ ;
+INTEGER : '0' | [1-9][0-9]* ;
+ID : [a-zA-Z][a-zA-Z0-9]* ;
 
 WS : [ \t\n\r\f]+ -> skip ;
 
 program
-    : classDecl EOF
+    : importDecl* classDecl EOF
     ;
 
+importDecl
+    : IMPORT ID (DOT ID)* SEMI
+    ;
 
 classDecl
-    : CLASS name=ID
-        LCURLY
-        methodDecl*
-        RCURLY
+    : CLASS name=ID (EXTENDS ID)?
+      LCURLY
+      varDecl*
+      methodDecl*
+      RCURLY
     ;
 
 varDecl
@@ -40,29 +70,61 @@ varDecl
     ;
 
 type
-    : name= INT ;
+    : name= INT
+    | name= INT DOT DOT DOT
+    | name= BOOLEAN
+    | name= ID
+    | name= STRING
+    | name= VOID
+    | type LBRACKET RBRACKET
+    ;
 
 methodDecl locals[boolean isPublic=false]
-    : (PUBLIC {$isPublic=true;})?
+    :   (PUBLIC {$isPublic=true;})?
+        STATIC?
         type name=ID
-        LPAREN param RPAREN
+        args
         LCURLY varDecl* stmt* RCURLY
+    ;
+
+args
+    : LPAREN (param (COMMA param)*)? RPAREN
     ;
 
 param
     : type name=ID
+    | expr
     ;
 
 stmt
-    : expr EQUALS expr SEMI #AssignStmt //
-    | RETURN expr SEMI #ReturnStmt
+    : var=ID (LBRACKET expr? RBRACKET)?
+      EQUALS expr SEMI              #AssignStmt
+    | IF LPAREN expr RPAREN
+      stmt (ELSE stmt)?             #IfElseStmt
+    | WHILE LPAREN expr RPAREN
+      stmt                          #WhileStmt
+    | LCURLY stmt* RCURLY           #ScopeStmt
+    | RETURN expr SEMI              #ReturnStmt
+    | expr SEMI                     #ExpressionStmt
     ;
 
 expr
-    : expr op= MUL expr #BinaryExpr //
-    | expr op= ADD expr #BinaryExpr //
-    | value=INTEGER #IntegerLiteral //
-    | name=ID #VarRefExpr //
+    : LPAREN expr RPAREN            #ParenExpr
+    | expr (DOT expr args?)* args   #FuncExpr
+    | expr (DOT expr)+              #MemberExpr
+    | expr op=(MUL|DIV) expr        #BinaryExpr
+    | expr op=(ADD|SUB) expr        #BinaryExpr
+    | value=INTEGER                 #IntegerLiteral
+    | expr (OR|AND) expr            #BooleanExpr
+    | expr (LE|LT|GT|GE|EQ) expr    #BooleanExpr
+    | NOT expr                      #BooleanExpr
+    | value=(TRUE | FALSE)          #BooleanLiteral
+    | name=ID                       #VarRefExpr
+    | expr
+      (LBRACKET expr RBRACKET)+     #VarRefExpr
+    | LBRACKET expr (COMMA expr)*
+      RBRACKET                      #ArrayExpr
+    | NEW type? expr                #NewExpr
     ;
 
 

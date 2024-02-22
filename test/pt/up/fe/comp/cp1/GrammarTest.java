@@ -15,14 +15,13 @@ package pt.up.fe.comp.cp1;
 
 import org.junit.Test;
 import pt.up.fe.comp.TestUtils;
+import pt.up.fe.comp2024.JavammParser;
 
 public class GrammarTest {
 
 
-    // TODO: Set name of imports grammar rule
-    private static final String IMPORT = "CHANGE ME! - name of import grammar rule";
-    // TODO: Set name of main method grammar rule
-    private static final String MAIN_METHOD = "CHANGE ME! - name of main method grammar rule";
+    private static final String IMPORT = "importDecl";
+    private static final String MAIN_METHOD = "methodDecl";
     private static final String INSTANCE_METHOD = "methodDecl";
     private static final String STATEMENT = "stmt";
     private static final String EXPRESSION = "expr";
@@ -140,9 +139,7 @@ public class GrammarTest {
     }
 
     @Test
-    public void testExprMemberCall() {
-        TestUtils.parseVerbose("foo.bar(10, a, true)", EXPRESSION);
-    }
+    public void testExprMemberCall() { TestUtils.parseVerbose("foo.bar(10, a, true)", EXPRESSION); }
 
     @Test
     public void testExprMemberCallChain() {
