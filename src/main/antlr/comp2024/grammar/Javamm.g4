@@ -55,21 +55,18 @@ program
     ;
 
 importDecl
-    : IMPORT name+=ID (DOT name+=ID)* SEMI
+    : IMPORT name+=ID (DOT name+=ID)* SEMI          #ImportDeclaration
     ;
 
 classDecl
     : CLASS name=ID (EXTENDS ext=ID)?
-      LCURLY
-      varDecl*
-      methodDecl*
-      RCURLY
+      LCURLY varDecl* methodDecl* RCURLY            #ClassDeclaration
     ;
 
 methodDecl locals[boolean isPublic=false]
     :   (PUBLIC {$isPublic=true;})?
-        STATIC? type name=ID args stmt
-    | mainMethod
+        STATIC? typename=type name=ID args stmt     #Method
+    | mainMethod                                    #Method
     ;
 
 mainMethod
@@ -79,10 +76,10 @@ mainMethod
     ;
 
 type
-    : INT
-    | BOOLEAN
-    | VOID
-    | STRING
+    : name=INT
+    | name=BOOLEAN
+    | name=VOID
+    | name=STRING
     | name=ID
     | type LBRACKET RBRACKET
     ;
@@ -108,7 +105,7 @@ stmt
     ;
 
 varDecl
-    : type name=ID SEMI
+    : typename=type name=ID SEMI    #Variable
     ;
 
 expr
