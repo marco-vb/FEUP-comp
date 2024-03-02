@@ -64,24 +64,20 @@ classDecl
     ;
 
 methodDecl locals[boolean isPublic=false]
-    :   (PUBLIC {$isPublic=true;})?
-        STATIC? typename=type name=ID args stmt     #Method
-    | mainMethod                                    #Method
+    :   PUBLIC STATIC VOID MAIN LPAREN
+        STRING LBRACKET RBRACKET
+        argument=ID RPAREN stmt                     #MainMethod
+    |   (PUBLIC {$isPublic=true;})?
+        STATIC? typename=type name=ID
+        arguments=args stmt                         #Method
     ;
 
-mainMethod
-    : STATIC VOID MAIN LPAREN
-      STRING LBRACKET RBRACKET
-      name=ID RPAREN stmt
-    ;
-
-type
-    : name=INT
+type locals[boolean isArray=false]
+    : name=INT (LBRACKET RBRACKET {$isArray=true;})?
     | name=BOOLEAN
     | name=VOID
     | name=STRING
     | name=ID
-    | type LBRACKET RBRACKET
     ;
 
 args
@@ -90,7 +86,12 @@ args
     ;
 
 param
-    : (type | INT DOT DOT DOT) name=ID
+    : typename=type name=ID                 #Parameter
+    | typename=varint name=ID               #Varargs
+    ;
+
+varint
+    : INT DOT DOT DOT
     ;
 
 stmt

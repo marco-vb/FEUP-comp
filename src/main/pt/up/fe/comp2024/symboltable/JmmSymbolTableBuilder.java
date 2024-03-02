@@ -54,29 +54,41 @@ public class JmmSymbolTableBuilder {
 
     private static Map<String, Type> buildReturnTypes(JmmNode classDecl) {
         Map<String, Type> map = new HashMap<>();
+        map.put("main", new Type("void", false));
 
-        classDecl.getChildren("Method")
-                .forEach(method -> map.put(
+        var methods = classDecl.getChildren("Method");
+
+        methods.forEach(method -> map.put(
                         method.get("name"),
-                        buildType(method.getChildren("Type").get(0))
-                ));
+                        buildType(method.getObject("typename", JmmNode.class))));
 
         return map;
     }
 
     private static Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
         Map<String, List<Symbol>> map = new HashMap<>();
+        var methods = classDecl.getChildren("Method");
 
-        classDecl.getChildren("Method")
-                .forEach(method -> map.put(
-                        method.get("name"),
-                        List.of(new Symbol(
-                                buildType(method.getJmmChild(0)),
-                                method.getJmmChild(1).get("name")
-                        )))
-                );
-
+        methods.forEach(method -> map.put(method.get("name"), buildMethodArguments(method)));
+        
         return map;
+    }
+
+    private static List<Symbol> buildMethodArguments(JmmNode method) {
+        var arguments = method.getChildren("Args");
+
+        if (arguments.size() != 1) {
+            throw new RuntimeException("Expected exactly one Args node in method declaration.");
+        }
+
+        arguments = arguments.get(0).getChildren("Parameter");
+
+        return arguments.stream().map(
+                arg -> new Symbol(
+                        buildType(arg.getObject("typename", JmmNode.class)),
+                        arg.get("name")
+                )
+        ).toList();
     }
 
     private static Map<String, List<Symbol>> buildLocals(JmmNode classDecl) {
@@ -88,9 +100,16 @@ public class JmmSymbolTableBuilder {
     }
 
     private static List<String> buildMethods(JmmNode classDecl) {
-        return classDecl.getChildren("Method").stream()
-                .map(method -> method.get("name"))
-                .toList();
+        var methods = new ArrayList<>(
+                classDecl.getChildren("Method").stream().map(node -> node.get("name")).toList()
+        );
+
+        if (classDecl.getChildren("MainMethod").size() != 1) {
+            throw new RuntimeException("Expected exactly one main method in class declaration.");
+        }
+
+        methods.add("main");
+        return methods;
     }
 
 
@@ -105,7 +124,7 @@ public class JmmSymbolTableBuilder {
     private static Type buildType(JmmNode node) {
         return new Type(
                 node.get("name"),
-                node.getNumChildren() > 1
+                node.get("isArray").equals("true")
         );
     }
 }

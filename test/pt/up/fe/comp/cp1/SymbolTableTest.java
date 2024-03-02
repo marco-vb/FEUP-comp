@@ -78,12 +78,12 @@ public class SymbolTableTest {
         var semantics = test("symboltable/MethodsAndFields.jmm", false);
         var st = semantics.getSymbolTable();
         var methods = st.getMethods();
+        System.out.println("METHODS: " + methods);
         assertEquals(5, methods.size());
         var checkInt = 0;
         var checkBool = 0;
         var checkObj = 0;
         var checkAll = 0;
-        System.out.println("METHODS: " + methods);
         for (var m : methods) {
             var ret = st.getReturnType(m);
             var numParameters = st.getParameters(m).size();
