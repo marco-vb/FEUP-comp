@@ -41,7 +41,10 @@ public class JmmSymbolTableBuilder {
         var fieldList = classDecl.getChildren("Variable");
 
         return fieldList.stream().map(
-                node -> new Symbol(buildType(node), node.get("name"))
+                node -> new Symbol(
+                        buildType(node.getObject("typename", JmmNode.class)),
+                        node.get("name")
+                )
         ).toList();
     }
 
