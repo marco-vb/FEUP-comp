@@ -64,9 +64,10 @@ classDecl
     ;
 
 methodDecl locals[boolean isPublic=false]
-    :   PUBLIC STATIC VOID MAIN LPAREN
+    :   PUBLIC? STATIC
+        VOID name=MAIN LPAREN
         STRING LBRACKET RBRACKET
-        argument=ID RPAREN stmt                     #MainMethod
+        argument=ID RPAREN stmt                     #Main
     |   (PUBLIC {$isPublic=true;})?
         STATIC? typename=type name=ID
         arguments=args stmt                         #Method

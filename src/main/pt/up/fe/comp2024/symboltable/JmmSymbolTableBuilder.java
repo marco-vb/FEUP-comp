@@ -54,7 +54,9 @@ public class JmmSymbolTableBuilder {
 
     private static Map<String, Type> buildReturnTypes(JmmNode classDecl) {
         Map<String, Type> map = new HashMap<>();
-        map.put("main", new Type("void", false));
+        if (classDecl.getChildren("Main").size() == 1) {
+            map.put("main", new Type("void", false));
+        }
 
         var methods = classDecl.getChildren("Method");
 
@@ -67,10 +69,15 @@ public class JmmSymbolTableBuilder {
 
     private static Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
         Map<String, List<Symbol>> map = new HashMap<>();
+
+        if (classDecl.getChildren("Main").size() == 1) {
+            map.put("main", List.of(new Symbol(new Type("String", true), "args")));
+        }
+
         var methods = classDecl.getChildren("Method");
 
         methods.forEach(method -> map.put(method.get("name"), buildMethodArguments(method)));
-        
+
         return map;
     }
 
@@ -93,8 +100,11 @@ public class JmmSymbolTableBuilder {
 
     private static Map<String, List<Symbol>> buildLocals(JmmNode classDecl) {
         Map<String, List<Symbol>> map = new HashMap<>();
-        classDecl.getChildren("Method")
-                .forEach(method -> map.put(method.get("name"), getLocalsList(method)));
+        var methods = classDecl.getChildren("Method");
+
+        methods.forEach(
+                method -> map.put(method.get("name"), getLocalsList(method))
+        );
 
         return map;
     }
@@ -104,21 +114,28 @@ public class JmmSymbolTableBuilder {
                 classDecl.getChildren("Method").stream().map(node -> node.get("name")).toList()
         );
 
-        if (classDecl.getChildren("MainMethod").size() != 1) {
-            throw new RuntimeException("Expected exactly one main method in class declaration.");
+//        if (classDecl.getChildren("Main").size() != 1) {
+//            throw new RuntimeException("Expected exactly one main method in class declaration.");
+//        }
+
+        if (classDecl.getChildren("Main").size() == 1) {
+            methods.add("main");
         }
 
-        methods.add("main");
         return methods;
     }
 
 
     private static List<Symbol> getLocalsList(JmmNode methodDecl) {
-        return methodDecl.getChildren("Variable").stream()
-                .map(node -> new Symbol(
-                        buildType(node),
-                        node.get("name")
-                )).toList();
+        var scope = methodDecl.getChildren("ScopeStmt").get(0);
+        var locals = scope.getChildren("VarDeclStmt");
+        if (!locals.isEmpty()) {
+            locals = locals.get(0).getChildren("Variable");
+        }
+
+        return locals.stream().map(node -> new Symbol(
+                buildType(node.getObject("typename", JmmNode.class)),
+                node.get("name"))).toList();
     }
 
     private static Type buildType(JmmNode node) {
