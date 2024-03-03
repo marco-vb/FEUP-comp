@@ -4,128 +4,129 @@ grammar Javamm;
     package pt.up.fe.comp2024;
 }
 
-EQUALS : '=';
-SEMI : ';' ;
-LCURLY : '{' ;
-RCURLY : '}' ;
-LPAREN : '(' ;
-RPAREN : ')' ;
-LBRACKET : '[';
-RBRACKET : ']';
-MUL : '*' ;
-ADD : '+' ;
-DIV : '/';
-SUB : '-';
-DOT : '.' ;
-COMMA : ',';
-OR : '||' ;
-AND : '&&' ;
-LT : '<' ;
-GT : '>' ;
-LE : '<=' ;
-GE : '>=' ;
-EQ : '==' ;
+LPAREN      : '(' ;
+RPAREN      : ')' ;
+LCURLY      : '{' ;
+RCURLY      : '}' ;
+LBRACKET    : '[';
+RBRACKET    : ']';
+EQUALS      : '=';
+SEMI        : ';' ;
+DOT         : '.' ;
+COMMA       : ',';    
+MUL         : '*' ;
+ADD         : '+' ;
+DIV         : '/';
+SUB         : '-';
+NOT         : '!' ;
+AND         : '&&' ;
+OR          : '||' ;
+LT          : '<' ;
+GT          : '>' ;
+LE          : '<=' ;
+GE          : '>=' ;
+EQ          : '==' ;
 
-CLASS : 'class' ;
-INT : 'int' ;
-STRING : 'String' ;
-STATIC : 'static' ;
-VOID : 'void' ;
-BOOLEAN : 'boolean' ;
-PUBLIC : 'public' ;
-RETURN : 'return' ;
-IMPORT : 'import';
-EXTENDS : 'extends';
-IF : 'if';
-ELSE : 'else';
-WHILE : 'while';
-NEW : 'new' ;
-TRUE : 'true' ;
-FALSE : 'false' ;
-NOT : '!' ;
+IMPORT      : 'import';
+PUBLIC      : 'public';
+STATIC      : 'static';
+CLASS       : 'class';
+MAIN        : 'main';
+EXTENDS     : 'extends';
+RETURN      : 'return';
+NEW         : 'new';
+VOID        : 'void';
+BOOLEAN     : 'boolean';
+TRUE        : 'true';
+FALSE       : 'false';
+INT         : 'int';
+STRING      : 'String';
+IF          : 'if';
+ELSE        : 'else';
+WHILE       : 'while';
+THIS        : 'this';
 
-INTEGER : '0' | [1-9][0-9]* ;
-ID : [a-zA-Z][a-zA-Z0-9]* ;
-
-WS : [ \t\n\r\f]+ -> skip ;
+INTEGER     : '0' | [1-9][0-9]*;
+ID          : [a-zA-Z][a-zA-Z0-9]*;
+WS          : [ \t\n\r\f]+ -> skip;
 
 program
     : importDecl* classDecl EOF
     ;
 
 importDecl
-    : IMPORT ID (DOT ID)* SEMI
+    : IMPORT name+=ID (DOT name+=ID)* SEMI          #ImportDeclaration
     ;
 
 classDecl
-    : CLASS name=ID (EXTENDS ID)?
-      LCURLY
-      varDecl*
-      methodDecl*
-      RCURLY
-    ;
-
-varDecl
-    : type name=ID SEMI
-    ;
-
-type
-    : name= INT
-    | name= INT DOT DOT DOT
-    | name= BOOLEAN
-    | name= ID
-    | name= STRING
-    | name= VOID
-    | type LBRACKET RBRACKET
+    : CLASS name=ID (EXTENDS ext=ID)?
+      LCURLY varDecl* methodDecl* RCURLY            #ClassDeclaration
     ;
 
 methodDecl locals[boolean isPublic=false]
-    :   (PUBLIC {$isPublic=true;})?
-        STATIC?
-        type name=ID
-        args
-        LCURLY varDecl* stmt* RCURLY
+    :   PUBLIC? STATIC
+        VOID name=MAIN LPAREN
+        STRING LBRACKET RBRACKET
+        argument=ID RPAREN stmt                     #Main
+    |   (PUBLIC {$isPublic=true;})?
+        STATIC? typename=type name=ID
+        arguments=args stmt                         #Method
+    ;
+
+type locals[boolean isArray=false]
+    : name=INT (LBRACKET RBRACKET {$isArray=true;})?
+    | name=BOOLEAN
+    | name=VOID
+    | name=STRING
+    | name=ID
     ;
 
 args
     : LPAREN (param (COMMA param)*)? RPAREN
+    | LPAREN (expr (COMMA expr)*)? RPAREN
     ;
 
 param
-    : type name=ID
-    | expr
+    : typename=type name=ID                 #Parameter
+    | typename=varint name=ID               #Varargs
+    ;
+
+varint
+    : INT DOT DOT DOT
     ;
 
 stmt
-    : var=ID (LBRACKET expr? RBRACKET)?
-      EQUALS expr SEMI              #AssignStmt
-    | IF LPAREN expr RPAREN
-      stmt (ELSE stmt)?             #IfElseStmt
-    | WHILE LPAREN expr RPAREN
-      stmt                          #WhileStmt
+    : expr EQUALS expr SEMI         #AssignStmt
+    | IF expr stmt ELSE stmt        #IfElseStmt
+    | WHILE expr stmt               #WhileStmt
     | LCURLY stmt* RCURLY           #ScopeStmt
     | RETURN expr SEMI              #ReturnStmt
     | expr SEMI                     #ExpressionStmt
+    | varDecl                       #VarDeclStmt
+    | SEMI                          #EmptyStmt
+    ;
+
+varDecl
+    : typename=type name=ID SEMI    #Variable
     ;
 
 expr
     : LPAREN expr RPAREN            #ParenExpr
-    | expr (DOT expr args?)* args   #FuncExpr
-    | expr (DOT expr)+              #MemberExpr
+    | NOT expr                      #BooleanExpr
     | expr op=(MUL|DIV) expr        #BinaryExpr
     | expr op=(ADD|SUB) expr        #BinaryExpr
-    | value=INTEGER                 #IntegerLiteral
+    | expr (LE|LT|GT|GE) expr       #BooleanExpr
+    | expr (EQ) expr                #BooleanExpr
     | expr (OR|AND) expr            #BooleanExpr
-    | expr (LE|LT|GT|GE|EQ) expr    #BooleanExpr
-    | NOT expr                      #BooleanExpr
+    | expr (DOT expr args?)* args   #FuncExpr
+    | expr (DOT expr)+              #MemberExpr
+    | value=INTEGER                 #IntegerLiteral
     | value=(TRUE | FALSE)          #BooleanLiteral
     | name=ID                       #VarRefExpr
     | expr
       (LBRACKET expr RBRACKET)+     #VarRefExpr
-    | LBRACKET expr (COMMA expr)*
+    | LBRACKET (expr (COMMA expr)*)?
       RBRACKET                      #ArrayExpr
     | NEW type? expr                #NewExpr
+    | THIS                          #ThisExpr
     ;
-
-
-

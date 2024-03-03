@@ -1,0 +1,5 @@
+class MethodsAndFields{
+	int field1;
+	boolean field2;
+	MethodsAndFields field3;
+}
