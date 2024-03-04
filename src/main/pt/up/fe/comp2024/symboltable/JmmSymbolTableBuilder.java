@@ -111,10 +111,8 @@ public class JmmSymbolTableBuilder {
 
     private static List<Symbol> getLocalsList(JmmNode methodDecl) {
         var scope = methodDecl.getChildren("ScopeStmt").get(0);
-        var locals = scope.getChildren("VarDeclStmt");
-        if (!locals.isEmpty()) {
-            locals = locals.get(0).getChildren("Variable");
-        }
+        System.out.println(scope.toTree());
+        var locals = scope.getChildren("Variable");
 
         return locals.stream().map(node -> new Symbol(
                 buildType(node.getObject("typename", JmmNode.class)),

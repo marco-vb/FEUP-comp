@@ -90,13 +90,12 @@ param
     ;
 
 stmt
-    : varDecl                       #VarDeclStmt
-    | expr EQUALS expr SEMI         #AssignStmt
+    : expr EQUALS expr SEMI         #AssignStmt
     | IF LPAREN expr RPAREN
       stmt ELSE stmt                #IfElseStmt
     | WHILE LPAREN expr RPAREN
       stmt                          #WhileStmt
-    | LCURLY stmt* RCURLY           #ScopeStmt
+    | LCURLY (varDecl | stmt)* RCURLY           #ScopeStmt
     | RETURN expr SEMI              #ReturnStmt
     | expr SEMI                     #ExpressionStmt
     | SEMI                          #EmptyStmt
