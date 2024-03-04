@@ -4,6 +4,8 @@ grammar Javamm;
     package pt.up.fe.comp2024;
 }
 
+WS          : [ \t\n\r\f]+ -> skip;
+
 LPAREN      : '(' ;
 RPAREN      : ')' ;
 LCURLY      : '{' ;
@@ -13,7 +15,7 @@ RBRACKET    : ']';
 EQUALS      : '=';
 SEMI        : ';' ;
 DOT         : '.' ;
-COMMA       : ',';    
+COMMA       : ',';
 MUL         : '*' ;
 ADD         : '+' ;
 DIV         : '/';
@@ -38,7 +40,7 @@ NEW         : 'new';
 VOID        : 'void';
 BOOLEAN     : 'boolean';
 INT         : 'int';
-VARINT      : 'int...';
+VARINT      : 'int' WS? '...';
 IF          : 'if';
 ELSE        : 'else';
 WHILE       : 'while';
@@ -48,8 +50,7 @@ SINGLE_LINE_COMMENT : '//' .*? '\n' -> skip;
 MULTI_LINE_COMMENT  : '/*' .*? '*/' -> skip;
 
 INTEGER     : '0' | [1-9][0-9]*;
-ID          : [a-zA-Z_][a-zA-Z0-9_]*;
-WS          : [ \t\n\r\f]+ -> skip;
+ID          : [a-zA-Z_$][a-zA-Z0-9_$]*;
 
 program
     : importDecl* classDecl EOF
