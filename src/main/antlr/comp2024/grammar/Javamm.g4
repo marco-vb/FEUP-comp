@@ -38,10 +38,14 @@ NEW         : 'new';
 VOID        : 'void';
 BOOLEAN     : 'boolean';
 INT         : 'int';
+VARINT      : 'int...';
 IF          : 'if';
 ELSE        : 'else';
 WHILE       : 'while';
 THIS        : 'this';
+
+SINGLE_LINE_COMMENT : '//' .*? '\n' -> skip;
+MULTI_LINE_COMMENT  : '/*' .*? '*/' -> skip;
 
 INTEGER     : '0' | [1-9][0-9]*;
 ID          : [a-zA-Z_][a-zA-Z0-9_]*;
@@ -68,6 +72,7 @@ methodDecl locals[boolean isPublic=false]
 
 type locals[boolean isArray=false]
     : name=INT (LBRACKET RBRACKET {$isArray=true;})?
+    | name=VARINT
     | name=BOOLEAN
     | name=VOID
     | name='String' (LBRACKET RBRACKET {$isArray=true;})?
@@ -81,11 +86,6 @@ args
 
 param
     : typename=type name=ID                 #Parameter
-    | typename=varint name=ID               #Varargs
-    ;
-
-varint
-    : INT DOT DOT DOT
     ;
 
 stmt
