@@ -62,7 +62,7 @@ importDecl
 
 classDecl
     : CLASS name=ID (EXTENDS ext=ID)?
-      LCURLY varDecl* methodDecl* RCURLY            #ClassDeclaration
+      LCURLY (varDecl | methodDecl)* RCURLY          #ClassDeclaration
     ;
 
 methodDecl locals[boolean isPublic=false]
