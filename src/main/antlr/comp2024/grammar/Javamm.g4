@@ -27,20 +27,17 @@ LE          : '<=' ;
 GE          : '>=' ;
 EQ          : '==' ;
 
+// keywords only
 IMPORT      : 'import';
 PUBLIC      : 'public';
 STATIC      : 'static';
 CLASS       : 'class';
-MAIN        : 'main';
 EXTENDS     : 'extends';
 RETURN      : 'return';
 NEW         : 'new';
 VOID        : 'void';
 BOOLEAN     : 'boolean';
-TRUE        : 'true';
-FALSE       : 'false';
 INT         : 'int';
-STRING      : 'String';
 IF          : 'if';
 ELSE        : 'else';
 WHILE       : 'while';
@@ -64,11 +61,7 @@ classDecl
     ;
 
 methodDecl locals[boolean isPublic=false]
-    :   PUBLIC? STATIC
-        VOID name=MAIN LPAREN
-        STRING LBRACKET RBRACKET
-        argument=ID RPAREN stmt                     #Main
-    |   (PUBLIC {$isPublic=true;})?
+    :   (PUBLIC {$isPublic=true;})?
         STATIC? typename=type name=ID
         arguments=args stmt                         #Method
     ;
@@ -77,7 +70,7 @@ type locals[boolean isArray=false]
     : name=INT (LBRACKET RBRACKET {$isArray=true;})?
     | name=BOOLEAN
     | name=VOID
-    | name=STRING
+    | name='String' (LBRACKET RBRACKET {$isArray=true;})?
     | name=ID
     ;
 
@@ -121,7 +114,7 @@ expr
     | expr (DOT expr args?)* args   #FuncExpr
     | expr (DOT expr)+              #MemberExpr
     | value=INTEGER                 #IntegerLiteral
-    | value=(TRUE | FALSE)          #BooleanLiteral
+    | value=('true' | 'false')      #BooleanLiteral
     | name=ID                       #VarRefExpr
     | expr
       (LBRACKET expr RBRACKET)+     #VarRefExpr

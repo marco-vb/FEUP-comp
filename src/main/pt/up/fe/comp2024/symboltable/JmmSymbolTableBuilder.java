@@ -54,9 +54,6 @@ public class JmmSymbolTableBuilder {
 
     private static Map<String, Type> buildReturnTypes(JmmNode classDecl) {
         Map<String, Type> map = new HashMap<>();
-        if (classDecl.getChildren("Main").size() == 1) {
-            map.put("main", new Type("void", false));
-        }
 
         var methods = classDecl.getChildren("Method");
 
@@ -69,10 +66,6 @@ public class JmmSymbolTableBuilder {
 
     private static Map<String, List<Symbol>> buildParams(JmmNode classDecl) {
         Map<String, List<Symbol>> map = new HashMap<>();
-
-        if (classDecl.getChildren("Main").size() == 1) {
-            map.put("main", List.of(new Symbol(new Type("String", true), "args")));
-        }
 
         var methods = classDecl.getChildren("Method");
 
@@ -110,19 +103,9 @@ public class JmmSymbolTableBuilder {
     }
 
     private static List<String> buildMethods(JmmNode classDecl) {
-        var methods = new ArrayList<>(
+        return new ArrayList<>(
                 classDecl.getChildren("Method").stream().map(node -> node.get("name")).toList()
         );
-
-//        if (classDecl.getChildren("Main").size() != 1) {
-//            throw new RuntimeException("Expected exactly one main method in class declaration.");
-//        }
-
-        if (classDecl.getChildren("Main").size() == 1) {
-            methods.add("main");
-        }
-
-        return methods;
     }
 
 
