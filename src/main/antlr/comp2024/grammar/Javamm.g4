@@ -92,7 +92,8 @@ stmt
     : expr EQUALS expr SEMI         #AssignStmt
     | IF LPAREN expr RPAREN
       stmt ELSE stmt                #IfElseStmt
-    | WHILE expr stmt               #WhileStmt
+    | WHILE LPAREN expr RPAREN
+      stmt                          #WhileStmt
     | LCURLY stmt* RCURLY           #ScopeStmt
     | RETURN expr SEMI              #ReturnStmt
     | expr SEMI                     #ExpressionStmt
