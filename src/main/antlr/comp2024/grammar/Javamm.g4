@@ -62,7 +62,7 @@ importDecl
 
 classDecl
     : CLASS name=ID (EXTENDS ext=ID)?
-      LCURLY (varDecl | methodDecl)* RCURLY          #ClassDeclaration
+      LCURLY varDecl* methodDecl* RCURLY          #ClassDeclaration
     ;
 
 methodDecl locals[boolean isPublic=false]
@@ -95,10 +95,9 @@ stmt
       stmt ELSE stmt                #IfElseStmt
     | WHILE LPAREN expr RPAREN
       stmt                          #WhileStmt
-    | LCURLY (varDecl | stmt)* RCURLY           #ScopeStmt
+    | LCURLY varDecl* stmt* RCURLY           #ScopeStmt
     | RETURN expr SEMI              #ReturnStmt
     | expr SEMI                     #ExpressionStmt
-    | SEMI                          #EmptyStmt
     ;
 
 varDecl
