@@ -90,7 +90,8 @@ varint
 
 stmt
     : expr EQUALS expr SEMI         #AssignStmt
-    | IF expr stmt ELSE stmt        #IfElseStmt
+    | IF LPAREN expr RPAREN
+      stmt ELSE stmt                #IfElseStmt
     | WHILE expr stmt               #WhileStmt
     | LCURLY stmt* RCURLY           #ScopeStmt
     | RETURN expr SEMI              #ReturnStmt
