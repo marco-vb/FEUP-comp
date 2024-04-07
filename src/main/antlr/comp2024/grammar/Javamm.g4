@@ -65,9 +65,10 @@ classDecl
       LCURLY varDecl* methodDecl* RCURLY          #ClassDeclaration
     ;
 
-methodDecl locals[boolean isPublic=false]
+methodDecl locals[boolean isPublic=false, boolean isStatic=false]
     :   (PUBLIC {$isPublic=true;})?
-        STATIC? typename=type name=ID
+        (STATIC {$isStatic=true;})?
+        typename=type name=ID
         arguments=args stmt                         #Method
     ;
 
