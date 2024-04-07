@@ -40,7 +40,7 @@ NEW         : 'new';
 VOID        : 'void';
 BOOLEAN     : 'boolean';
 INT         : 'int';
-VARINT      : 'int' WS? '...';
+VARINT      : 'int' '...';
 IF          : 'if';
 ELSE        : 'else';
 WHILE       : 'while';
