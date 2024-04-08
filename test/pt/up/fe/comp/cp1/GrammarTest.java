@@ -110,7 +110,7 @@ public class GrammarTest {
 
     @Test
     public void testExprTrue() {
-        TestUtils.parseVerbose("true", EXPRESSION);
+        TestUtils.parseVerbose("this.foo()()", EXPRESSION);
     }
 
     @Test

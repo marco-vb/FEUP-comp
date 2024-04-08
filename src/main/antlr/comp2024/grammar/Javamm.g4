@@ -100,7 +100,7 @@ stmt
       stmt ELSE stmt                #IfElseStmt
     | WHILE LPAREN expr RPAREN
       stmt                          #WhileStmt
-    | LCURLY varDecl* stmt* RCURLY           #ScopeStmt
+    | LCURLY stmt* RCURLY  #ScopeStmt
     | RETURN expr SEMI              #ReturnStmt
     | expr SEMI                     #ExpressionStmt
     ;
@@ -111,13 +111,15 @@ varDecl
 
 expr
     : LPAREN expr RPAREN            #ParenExpr
-    | NOT expr                      #BooleanExpr
+    | NOT expr                      #UnaryExpr
     | expr op=(MUL|DIV) expr        #BinaryExpr
     | expr op=(ADD|SUB) expr        #BinaryExpr
-    | expr (LE|LT|GT|GE) expr       #BooleanExpr
-    | expr (EQ) expr                #BooleanExpr
-    | expr (OR|AND) expr            #BooleanExpr
-    | expr (DOT expr params?)* params   #FuncExpr
+    | expr (LE|LT|GT|GE) expr       #BinaryExpr
+    | expr (EQ) expr                #BinaryExpr
+    | expr (OR|AND) expr            #BinaryExpr
+    | expr DOT ID                   #FuncExpr
+    | expr DOT ID LPAREN (expr (COMMA expr)* )? RPAREN
+                                    #FuncExpr
     | expr (DOT expr)+              #MemberExpr
     | value=INTEGER                 #IntegerLiteral
     | value=('true' | 'false')      #BooleanLiteral
@@ -126,6 +128,6 @@ expr
       (LBRACKET expr RBRACKET)+     #VarRefExpr
     | LBRACKET (expr (COMMA expr)*)?
       RBRACKET                      #ArrayExpr
-    | NEW type? expr                #NewExpr
+    | NEW ID LPAREN RPAREN          #NewExpr
     | THIS                          #ThisExpr
     ;
