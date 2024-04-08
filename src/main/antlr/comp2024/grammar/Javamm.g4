@@ -4,8 +4,6 @@ grammar Javamm;
     package pt.up.fe.comp2024;
 }
 
-WS          : [ \t\n\r\f]+ -> skip;
-
 LPAREN      : '(' ;
 RPAREN      : ')' ;
 LCURLY      : '{' ;
@@ -39,13 +37,14 @@ RETURN      : 'return';
 NEW         : 'new';
 VOID        : 'void';
 BOOLEAN     : 'boolean';
-INT         : 'int';
 VARINT      : 'int' '...';
+INT         : 'int';
 IF          : 'if';
 ELSE        : 'else';
 WHILE       : 'while';
 THIS        : 'this';
 
+WS          : [ \t\n\r\f]+ -> skip;
 SINGLE_LINE_COMMENT : '//' .*? '\n' -> skip;
 MULTI_LINE_COMMENT  : '/*' .*? '*/' -> skip;
 
@@ -82,16 +81,21 @@ type locals[boolean isArray=false]
     ;
 
 args
-    : LPAREN (param (COMMA param)*)? RPAREN
-    | LPAREN (expr (COMMA expr)*)? RPAREN
+    : LPAREN (arg (COMMA arg)*)? RPAREN
     ;
 
-param
+arg
     : typename=type name=ID                 #Parameter
     ;
 
+params
+    : LPAREN (expr (COMMA expr)*)? RPAREN
+    ;
+
 stmt
-    : expr EQUALS expr SEMI         #AssignStmt
+    : ID EQUALS expr SEMI           #AssignStmt
+    | ID LBRACKET expr RBRACKET
+      EQUALS expr SEMI              #ArrayAssignStmt
     | IF LPAREN expr RPAREN
       stmt ELSE stmt                #IfElseStmt
     | WHILE LPAREN expr RPAREN
@@ -113,7 +117,7 @@ expr
     | expr (LE|LT|GT|GE) expr       #BooleanExpr
     | expr (EQ) expr                #BooleanExpr
     | expr (OR|AND) expr            #BooleanExpr
-    | expr (DOT expr args?)* args   #FuncExpr
+    | expr (DOT expr params?)* params   #FuncExpr
     | expr (DOT expr)+              #MemberExpr
     | value=INTEGER                 #IntegerLiteral
     | value=('true' | 'false')      #BooleanLiteral
