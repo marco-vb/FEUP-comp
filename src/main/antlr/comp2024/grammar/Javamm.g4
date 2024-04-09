@@ -14,7 +14,7 @@ RETURN      : 'return';
 NEW         : 'new';
 VOID        : 'void';
 BOOLEAN     : 'boolean';
-VARINT      : 'int' '...';
+ELLIPSIS    : '...';
 INT         : 'int';
 IF          : 'if';
 ELSE        : 'else';
@@ -52,7 +52,7 @@ methodDecl locals[boolean isPublic=false, boolean isStatic=false]
 
 type locals[boolean isArray=false]
     : name=INT ('[' ']' {$isArray=true;})?
-    | name=VARINT
+    | name=INT (ELLIPSIS {$isArray=true;})?
     | name=BOOLEAN
     | name=VOID
     | name='String' ('[' ']' {$isArray=true;})?
