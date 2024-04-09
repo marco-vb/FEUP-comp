@@ -75,20 +75,28 @@ public class JmmSymbolTableBuilder {
     }
 
     private static List<Symbol> buildMethodArguments(JmmNode method) {
-        var arguments = method.getChildren("Args");
+        var arguments = method.getChildren("Arguments");
 
         if (arguments.size() != 1) {
-            throw new RuntimeException("Expected exactly one Args node in method declaration.");
+            throw new RuntimeException("Expected exactly one Arguments node in method declaration.");
         }
 
-        arguments = arguments.get(0).getChildren("Parameter");
+        if (arguments.get(0).getNumChildren() == 0) {
+            System.out.println("No arguments found.");
+            return new ArrayList<>();
+        }
 
-        return arguments.stream().map(
+        arguments = arguments.get(0).getChildren("Argument");
+
+        var ret =  arguments.stream().map(
                 arg -> new Symbol(
                         buildType(arg.getObject("typename", JmmNode.class)),
                         arg.get("name")
                 )
         ).toList();
+
+        System.out.println("Arguments: " + ret);
+        return ret;
     }
 
     private static Map<String, List<Symbol>> buildLocals(JmmNode classDecl) {
@@ -108,11 +116,13 @@ public class JmmSymbolTableBuilder {
 
 
     private static List<Symbol> getLocalsList(JmmNode methodDecl) {
-        var scope = methodDecl.getChildren("ScopeStmt").get(0);
-        System.out.println(scope.toTree());
-        var locals = scope.getChildren("Variable");
+        var variables = methodDecl.getChildren("Variable");
 
-        return locals.stream().map(node -> new Symbol(
+        if (variables.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        return variables.stream().map(node -> new Symbol(
                 buildType(node.getObject("typename", JmmNode.class)),
                 node.get("name"))).toList();
     }
