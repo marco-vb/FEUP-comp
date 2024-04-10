@@ -8,6 +8,7 @@ import java.util.Set;
 
 public enum Kind {
     PROGRAM,
+    ARGS,
     CLASS_DECL,
     VAR_DECL,
     TYPE,
@@ -17,6 +18,8 @@ public enum Kind {
     RETURN_STMT,
     BINARY_EXPR,
     INTEGER_LITERAL,
+    EXPRESSION_STMT,
+    SCOPE_STMT,
     VAR_REF_EXPR;
 
 
