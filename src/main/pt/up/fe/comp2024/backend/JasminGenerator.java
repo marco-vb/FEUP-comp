@@ -22,6 +22,12 @@ public class JasminGenerator {
     private static final String NL = "\n";
     private static final String TAB = "   ";
 
+    private static final Type INT_TYPE = new Type(ElementType.INT32);
+    private static final Type STRING_ARRAY_TYPE = new Type(ElementType.ARRAYREF);
+    private static final Type STRING_TYPE = new Type(ElementType.STRING);
+    private static final Type VOID_TYPE = new Type(ElementType.VOID);
+    private static final Type BOOLEAN_TYPE = new Type(ElementType.BOOLEAN);
+
     private final OllirResult ollirResult;
 
     List<Report> reports;
@@ -74,7 +80,12 @@ public class JasminGenerator {
         code.append(".class ").append(className).append(NL).append(NL);
 
         // TODO: Hardcoded to Object, needs to be expanded
-        code.append(".super java/lang/Object").append(NL);
+        // verificar nome da classe tem de ser absolute path
+        if (ollirResult.getOllirClass().getSuperClass() != null) {
+            code.append(".super ").append(ollirResult.getOllirClass().getSuperClass()).append(NL);
+        } else {
+            code.append(".super java/lang/Object").append(NL);
+        }
 
         // generate a single constructor method
         var defaultConstructor = """
@@ -119,7 +130,16 @@ public class JasminGenerator {
         var methodName = method.getMethodName();
 
         // TODO: Hardcoded param types and return type, needs to be expanded
-        code.append("\n.method ").append(modifier).append(methodName).append("(I)I").append(NL);
+        code.append("\n.method ").append(modifier).append(methodName);
+
+        // Add parameters
+        var params = method.getParams().stream()
+                .map(this::generateParam).toList();
+
+        code.append("(").append(String.join("", params)).append(")");
+
+        var returnType = generateParam(method.getReturnType());
+        code.append(returnType).append(NL);
 
         // Add limits
         code.append(TAB).append(".limit stack 99").append(NL);
@@ -138,6 +158,35 @@ public class JasminGenerator {
         currentMethod = null;
 
         return code.toString();
+    }
+
+    private String generateParam(Element param) {
+        ElementType type = param.getType().getTypeOfElement();
+
+        return generateType(type);
+    }
+
+    private String generateParam(Type param) {
+        ElementType type = param.getTypeOfElement();
+        System.out.println(param);
+
+        return generateType(type);
+    }
+
+    private String generateType(ElementType type) {
+        if (type == ElementType.INT32) {
+            return "I";
+        } else if (type == ElementType.STRING) {
+            return "Ljava/lang/String;";
+        } else if (type == ElementType.BOOLEAN) {
+            return "Z";
+        } else if (type == ElementType.ARRAYREF) {
+            return "[Ljava/lang/String;";
+        } else if (type == ElementType.VOID) {
+            return "V";
+        } else {
+             throw new NotImplementedException(type);
+        }
     }
 
     private String generateAssign(AssignInstruction assign) {
