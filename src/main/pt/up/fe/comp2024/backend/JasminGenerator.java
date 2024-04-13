@@ -22,12 +22,6 @@ public class JasminGenerator {
     private static final String NL = "\n";
     private static final String TAB = "   ";
 
-    private static final Type INT_TYPE = new Type(ElementType.INT32);
-    private static final Type STRING_ARRAY_TYPE = new Type(ElementType.ARRAYREF);
-    private static final Type STRING_TYPE = new Type(ElementType.STRING);
-    private static final Type VOID_TYPE = new Type(ElementType.VOID);
-    private static final Type BOOLEAN_TYPE = new Type(ElementType.BOOLEAN);
-
     private final OllirResult ollirResult;
 
     List<Report> reports;
@@ -54,6 +48,46 @@ public class JasminGenerator {
         generators.put(Operand.class, this::generateOperand);
         generators.put(BinaryOpInstruction.class, this::generateBinaryOp);
         generators.put(ReturnInstruction.class, this::generateReturn);
+        generators.put(Instruction.class, this::generateInstruction);
+    }
+
+    private String generateInstruction(Instruction instruction) {
+        return switch (instruction.getInstType()) {
+//                    ASSIGN,
+//                    CALL,
+//                    GOTO,
+//                    BRANCH,
+//                    RETURN,
+//                    PUTFIELD,
+//                    GETFIELD,
+//                    UNARYOPER,
+//                    BINARYOPER,
+//                    NOPER;
+            case ASSIGN -> generateAssign((AssignInstruction) instruction);
+            case UNARYOPER -> generateSingleOp((SingleOpInstruction) instruction);
+            case GOTO -> throw new NotImplementedException(instruction.getInstType());
+            case BRANCH -> throw new NotImplementedException(instruction.getInstType());
+            case RETURN -> generateReturn((ReturnInstruction) instruction);
+            case PUTFIELD -> throw new NotImplementedException(instruction.getInstType());
+            case GETFIELD -> throw new NotImplementedException(instruction.getInstType());
+            case CALL -> generateCall((CallInstruction) instruction);
+            case BINARYOPER -> generateBinaryOp((BinaryOpInstruction) instruction);
+            case NOPER -> "";
+        };
+    }
+
+    private String generateCall(CallInstruction instruction) {
+        var code = new StringBuilder();
+
+        // generate code for loading arguments
+        for (var arg : instruction.getArguments()) {
+            code.append(generators.apply(arg));
+        }
+
+        // generate code for calling method
+        code.append("invokestatic ").append(instruction.getMethodName()).append(NL);
+
+        return code.toString();
     }
 
     public List<Report> getReports() {
@@ -64,6 +98,7 @@ public class JasminGenerator {
 
         // This way, build is idempotent
         if (code == null) {
+            System.out.println(ollirResult.getOllirClass());
             code = generators.apply(ollirResult.getOllirClass());
         }
 
@@ -83,12 +118,22 @@ public class JasminGenerator {
         // verificar nome da classe tem de ser absolute path
         if (ollirResult.getOllirClass().getSuperClass() != null) {
             code.append(".super ").append(ollirResult.getOllirClass().getSuperClass()).append(NL);
+
+            // call constructor of super class
+            var superConstructor = """
+                ;super constructor
+                .method public <init>()V
+                    aload_0
+                    invokespecial %s/<init>()V
+                    return
+                .end method
+                """.formatted(ollirResult.getOllirClass().getSuperClass());
+            code.append(superConstructor);
         } else {
             code.append(".super java/lang/Object").append(NL);
-        }
 
-        // generate a single constructor method
-        var defaultConstructor = """
+            // generate a single constructor method
+            var defaultConstructor = """
                 ;default constructor
                 .method public <init>()V
                     aload_0
@@ -96,7 +141,9 @@ public class JasminGenerator {
                     return
                 .end method
                 """;
-        code.append(defaultConstructor);
+            code.append(defaultConstructor);
+        }
+
 
         // generate code for all other methods
         for (var method : ollirResult.getOllirClass().getMethods()) {
@@ -126,6 +173,14 @@ public class JasminGenerator {
         var modifier = method.getMethodAccessModifier() != AccessModifier.DEFAULT ?
                 method.getMethodAccessModifier().name().toLowerCase() + " " :
                 "";
+
+        if (method.isStaticMethod()) {
+            modifier += "static ";
+        }
+
+        if (method.isFinalMethod()) {
+            modifier += "final ";
+        }
 
         var methodName = method.getMethodName();
 
@@ -185,8 +240,10 @@ public class JasminGenerator {
         } else if (type == ElementType.VOID) {
             return "V";
         } else {
-             throw new NotImplementedException(type);
+//             throw new NotImplementedException(type);
+            System.out.println("Not implemented type: " + type);
         }
+        return "";
     }
 
     private String generateAssign(AssignInstruction assign) {
@@ -198,8 +255,11 @@ public class JasminGenerator {
         // store value in the stack in destination
         var lhs = assign.getDest();
 
+        System.out.println(assign.toTree());
+
         if (!(lhs instanceof Operand)) {
-            throw new NotImplementedException(lhs.getClass());
+//            throw new NotImplementedException(lhs.getClass());
+            System.out.println("Not implemented type: " + lhs.getClass());
         }
 
         var operand = (Operand) lhs;
@@ -238,7 +298,7 @@ public class JasminGenerator {
         var op = switch (binaryOp.getOperation().getOpType()) {
             case ADD -> "iadd";
             case MUL -> "imul";
-            default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
+            default -> "sus"; // throw new NotImplementedException(binaryOp.getOperation().getOpType());
         };
 
         code.append(op).append(NL);
@@ -250,6 +310,11 @@ public class JasminGenerator {
         var code = new StringBuilder();
 
         // TODO: Hardcoded to int return type, needs to be expanded
+
+        if (returnInst.getReturnType().getTypeOfElement() == ElementType.VOID) {
+            code.append("return").append(NL);
+            return code.toString();
+        }
 
         code.append(generators.apply(returnInst.getOperand()));
         code.append("ireturn").append(NL);
