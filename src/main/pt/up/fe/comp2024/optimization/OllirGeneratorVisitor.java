@@ -24,11 +24,11 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private final String L_BRACKET = " {\n";
     private final String R_BRACKET = "}\n";
     private final SymbolTable table;
-
     private final OllirExprGeneratorVisitor exprVisitor;
 
     public OllirGeneratorVisitor(SymbolTable table) {
         this.table = table;
+        this.table.print();
         exprVisitor = new OllirExprGeneratorVisitor(table);
     }
 
@@ -44,36 +44,55 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(ASSIGN_STMT, this::visitAssignStmt);
         addVisit(ARGS, this::visitArgs);
         addVisit(SCOPE_STMT, this::visitScopeStmt);
-        addVisit(EXPRESSION_STMT, this::visitExpressionStmt);
+        addVisit(FUNC_EXPR, this::visitFuncExpr);
         addVisit(VAR_REF_EXPR, this::visitVarRefExpr);
+        addVisit(EXPRESSION_STMT, this::visitExpressionStmt);
+
         // JmmNode = "Args" -> ARGS
         // JmmNode = "StmtReturn" -> STMT_RETURN
 
         setDefaultVisit(this::defaultVisit);
     }
 
-
+    private String visitExpressionStmt(JmmNode node, Void unused) {
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < node.getNumChildren(); i++)
+            code.append(visit(node.getChild(i)));
+        return code.toString();
+    }
     private String visitVarRefExpr(JmmNode node, Void unused){
         StringBuilder code = new StringBuilder();
-        code.append(node.get("name"));
+        String name = node.get("name");
+        //String type = toOllirType(this.table.getLocalVariables(name).get(0).getType());
+        code.append(name);
+    //.append(type);
         return code.toString();
     }
 
-    private String visitExpressionStmt(JmmNode node, Void unused){
+    private String visitFuncExpr(JmmNode node, Void unused){
         StringBuilder code = new StringBuilder();
-        //
-        //System.out.println(node.getChild(0).getChild(0));
         code.append("invokestatic(");
-        for (int i  = 0; i < node.getChild(0).getNumChildren(); i++)
+
+        for (int i  = 0; i < node.getNumChildren(); i++)
         {
-            if (node.getChild(0).getChild(i).getKind().equals("Args")) {
-                code.append(visit(node.getChild(0)));
+            if (node.getChild(i).getKind().equals("Args")) {
+                code.append(visit(node.getChild(i)));   // FuncExpr
                 continue;
             }
-            //System.out.println(node.getChild(0).getChild(i));
-            code.append(node.getChild(0).getChild(i).get("name"));
-            code.append(",");
+
+            if (node.getChild(i).get("name").equals("println")) {
+                code.append("\"");
+                code.append(node.getChild(i).get("name"));
+                code.append("\", ");
+                continue;
+            }
+
+
+            code.append(node.getChild(i).get("name"));
+            code.append(", ");
         }
+        code.append(").V");
+        code.append(NL);
         //System.out.println(node.getChild(0).getChild(1));
         return code.toString();
     }
@@ -155,6 +174,10 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         code.append(END_STMT);
 
+        if (code.toString().isEmpty())
+            code.append("ret.V");
+
+
         return code.toString();
     }
 
@@ -235,6 +258,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         //System.out.println(table.getSuper());
         if (table.getSuper() != null && !table.getSuper().isEmpty())
             code.append(" extends ").append(table.getSuper());
+        else
+            code.append(" extends Object ").append(table.getSuper());
         code.append(L_BRACKET);
 
         code.append(NL);
@@ -271,7 +296,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private String buildConstructor() {
 
         return ".construct " + table.getClassName() + "().V {\n" +
-                "invokespecial(this, \"<init>\").V;\n" +
+                "invokespecial(this, \"\").V;\n" +
                 "}\n";
     }
 
