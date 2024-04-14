@@ -6,6 +6,9 @@ import pt.up.fe.specs.util.SpecsStrings;
 import java.util.Arrays;
 import java.util.Set;
 
+/**
+ * Represents the different kinds of nodes in the AST.
+ */
 public enum Kind {
     PROGRAM,
     CLASS_DECL,
@@ -17,11 +20,14 @@ public enum Kind {
     RETURN_STMT,
     BINARY_EXPR,
     INTEGER_LITERAL,
-    VAR_REF_EXPR;
+    BOOLEAN_LITERAL,
+    VAR_REF_EXPR,
+    ARRAY_ACCESS_EXPR,
+    IF_ELSE_STMT,
+    WHILE_STMT;
 
-
-    private static final Set<Kind> STATEMENTS = Set.of(ASSIGN_STMT, RETURN_STMT);
-    private static final Set<Kind> EXPRESSIONS = Set.of(BINARY_EXPR, INTEGER_LITERAL, VAR_REF_EXPR);
+    private static final Set<Kind> STATEMENTS = Set.of(ASSIGN_STMT, RETURN_STMT, IF_ELSE_STMT, WHILE_STMT);
+    private static final Set<Kind> EXPRESSIONS = Set.of(BINARY_EXPR, INTEGER_LITERAL, VAR_REF_EXPR, ARRAY_ACCESS_EXPR, BOOLEAN_LITERAL);
 
     private final String name;
 

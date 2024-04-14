@@ -97,7 +97,7 @@ expr
     | value=INTEGER                     #IntegerLiteral
     | value=('true' | 'false')          #BooleanLiteral
     | name=ID                           #VarRefExpr
-    | expr ('[' expr ']')+              #VarRefExpr
+    | expr ('[' expr ']')+              #ArrayAccessExpr
     | '[' (expr (',' expr)*)? ']'       #ArrayExpr
     | NEW ID '(' ')'                    #NewExpr
     | NEW INT '[' expr ']'              #NewArrayExpr

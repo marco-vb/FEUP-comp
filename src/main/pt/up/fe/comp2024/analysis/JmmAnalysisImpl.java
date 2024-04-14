@@ -8,6 +8,7 @@ import pt.up.fe.comp.jmm.parser.JmmParserResult;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2024.analysis.passes.UndeclaredVariable;
+import pt.up.fe.comp2024.analysis.passes.TypeError;
 import pt.up.fe.comp2024.symboltable.JmmSymbolTableBuilder;
 
 import java.util.ArrayList;
@@ -20,8 +21,11 @@ public class JmmAnalysisImpl implements JmmAnalysis {
 
     public JmmAnalysisImpl() {
 
-        this.analysisPasses = List.of(new UndeclaredVariable());
+        this.analysisPasses = new ArrayList<>();
 
+        // Add all analysis passes
+        analysisPasses.add(new UndeclaredVariable());
+        analysisPasses.add(new TypeError());
     }
 
     @Override
