@@ -49,6 +49,7 @@ public class JasminGenerator {
         generators.put(BinaryOpInstruction.class, this::generateBinaryOp);
         generators.put(ReturnInstruction.class, this::generateReturn);
         generators.put(Instruction.class, this::generateInstruction);
+        generators.put(Field.class, this::generateField);
     }
 
 
@@ -90,6 +91,10 @@ public class JasminGenerator {
 
         code.append(".super ").append(superClass).append(NL);
 
+        // generate fields
+        for (var field : ollirResult.getOllirClass().getFields()) {
+            code.append(generators.apply(field));
+        }
 
         // generate code for constructor and methods
         for (var method : ollirResult.getOllirClass().getMethods()) {
@@ -101,6 +106,30 @@ public class JasminGenerator {
             }
             code.append(NL);
         }
+
+        return code.toString();
+    }
+
+    private String generateField(Field field) {
+        var code = new StringBuilder();
+
+        // calculate modifier
+        var modifier = field.getFieldAccessModifier() != AccessModifier.DEFAULT ?
+                field.getFieldAccessModifier().name().toLowerCase() + " " : "private ";
+
+        if (field.isStaticField()) {
+            modifier += "static ";
+        }
+
+        if (field.isFinalField()) {
+            modifier += "final ";
+        }
+
+        code.append(".field ").append(modifier).append(field.getFieldName()).append(" ");
+
+        // Add return type
+        var returnType = generateParam(field.getFieldType());
+        code.append(returnType).append(NL);
 
         return code.toString();
     }
@@ -248,12 +277,63 @@ public class JasminGenerator {
             case GOTO -> throw new NotImplementedException(instruction.getInstType());
             case BRANCH -> throw new NotImplementedException(instruction.getInstType());
             case RETURN -> generateReturn((ReturnInstruction) instruction);
-            case PUTFIELD -> throw new NotImplementedException(instruction.getInstType());
-            case GETFIELD -> throw new NotImplementedException(instruction.getInstType());
+            case PUTFIELD -> generatePutField((PutFieldInstruction) instruction);
+            case GETFIELD -> generateGetField((GetFieldInstruction) instruction);
             case CALL -> generateCall((CallInstruction) instruction);
             case BINARYOPER -> generateBinaryOp((BinaryOpInstruction) instruction);
             case NOPER -> "";
         };
+    }
+
+    private String generateGetField(GetFieldInstruction instruction) {
+        var code = new StringBuilder();
+
+        // push object onto the stack
+        code.append("aload_");
+        code.append(currentMethod.getVarTable().get(instruction.getObject().getName()).getVirtualReg());
+        code.append(NL);
+
+        // get value from the field
+        code.append("getfield ");
+
+        var className = instruction.getObject().toElement().getType();
+        var name = className.toString();
+        name = name.substring(name.lastIndexOf("(") + 1, name.length() - 1);
+        code.append(name).append("/");
+        code.append(instruction.getField().getName()).append(" ");
+
+        // Add return type
+        var returnType = generateParam(instruction.getField().getType());
+        code.append(returnType).append(NL);
+
+        return code.toString();
+    }
+
+    private String generatePutField(PutFieldInstruction instruction) {
+        var code = new StringBuilder();
+
+        // push object onto the stack
+        code.append("aload_");
+        code.append(currentMethod.getVarTable().get(instruction.getObject().getName()).getVirtualReg());
+        code.append(NL);
+
+        // push value onto the stack
+        code.append(generators.apply(instruction.getValue()));
+
+        // store value in the field
+        code.append("putfield ");
+
+        var className = instruction.getObject().toElement().getType();
+        var name = className.toString();
+        name = name.substring(name.lastIndexOf("(") + 1, name.length() - 1);
+        code.append(name).append("/");
+        code.append(instruction.getField().getName()).append(" ");
+
+        // Add return type
+        var returnType = generateParam(instruction.getValue().getType());
+        code.append(returnType).append(NL);
+
+        return code.toString();
     }
 
     private String generateCall(CallInstruction instruction) {
