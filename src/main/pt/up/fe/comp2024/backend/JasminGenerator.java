@@ -51,6 +51,186 @@ public class JasminGenerator {
         generators.put(Instruction.class, this::generateInstruction);
     }
 
+
+    public List<Report> getReports() {
+        return reports;
+    }
+
+    public String build() {
+
+        // This way, build is idempotent
+        if (code == null) {
+            code = generators.apply(ollirResult.getOllirClass());
+        }
+
+        return code;
+    }
+
+
+    //**
+    // * Generates the code for a class unit.
+    // * @param classUnit The class unit to generate code for.
+    // * @return The generated code.
+    // */
+    private String generateClassUnit(ClassUnit classUnit) {
+
+        var code = new StringBuilder();
+
+        // generate class name
+        var className = ollirResult.getOllirClass().getClassName();
+        code.append(".class ").append(className).append(NL);
+
+
+        // generate super class
+        var superClass = ollirResult.getOllirClass().getSuperClass();
+
+        if (superClass == null) {
+            superClass = "java/lang/Object";
+        }
+
+        code.append(".super ").append(superClass).append(NL);
+
+
+        // generate code for constructor and methods
+        for (var method : ollirResult.getOllirClass().getMethods()) {
+            code.append(NL);
+            if (method.isConstructMethod()) {
+                code.append(generateConstructor(method, superClass));
+            } else {
+                code.append(generators.apply(method));
+            }
+            code.append(NL);
+        }
+
+        return code.toString();
+    }
+
+    //**
+    // * Generates the header of a method. e.g. .method public static main([Ljava/lang/String;)V
+    // * @param method The method to generate the header for.
+    // * @return The generated header.
+    // */
+    private String generateMethodHeader(Method method) {
+        var header = new StringBuilder();
+
+        // calculate modifier
+        var modifier = method.getMethodAccessModifier() != AccessModifier.DEFAULT ?
+                method.getMethodAccessModifier().name().toLowerCase() + " " : "";
+
+        if (method.isStaticMethod()) {
+            modifier += "static ";
+        }
+
+        if (method.isFinalMethod()) {
+            modifier += "final ";
+        }
+
+        header.append(".method ").append(modifier).append(method.getMethodName());
+
+        // Add parameters
+        var params = method.getParams().stream()
+                .map(this::generateParam).toList();
+
+        header.append("(").append(String.join("", params)).append(")");
+
+        // Add return type
+        var returnType = generateParam(method.getReturnType());
+        header.append(returnType).append(NL);
+
+        return header.toString();
+    }
+
+
+    private String generateConstructor(Method constructor, String superClass) {
+        var code = new StringBuilder();
+
+        // generate constructor header
+        code.append(".method public <init>");
+
+        // Add parameters
+        var params = constructor.getParams().stream()
+                .map(this::generateParam).toList();
+
+        code.append("(").append(String.join("", params)).append(")");
+
+        // Add return type
+        var returnType = generateParam(constructor.getReturnType());
+        code.append(returnType).append(NL);
+
+        // generate code for calling super constructor
+        code.append(TAB).append("aload_0").append(NL);
+        code.append(TAB).append("invokespecial ").append(superClass).append("/<init>()V").append(NL);
+
+        code.append(TAB).append("return").append(NL);
+        code.append(".end method").append(NL).append(NL);
+
+        return code.toString();
+    }
+
+    private String generateMethod(Method method) {
+        // set method
+        currentMethod = method;
+
+        var code = new StringBuilder(generateMethodHeader(method));
+
+        // Add limits
+        code.append(TAB).append(".limit stack 99").append(NL);
+        code.append(TAB).append(".limit locals 99").append(NL);
+
+        for (var inst : method.getInstructions()) {
+            var instCode = StringLines.getLines(generators.apply(inst)).stream()
+                    .collect(Collectors.joining(NL + TAB, TAB, NL));
+
+            code.append(instCode);
+        }
+
+        code.append(".end method").append(NL).append(NL);
+
+        // unset method
+        currentMethod = null;
+
+        return code.toString();
+    }
+
+    private String generateParam(Element param) {
+        Type type = param.getType();
+        return generateType(type);
+    }
+
+    private String generateParam(Type param) {
+        return generateType(param);
+    }
+
+    private String generateType(Type param) {
+        ElementType type = param.getTypeOfElement();
+        switch (type) {
+            case INT32 -> {
+                return "I";
+            }
+            case STRING -> {
+                return "Ljava/lang/String;";
+            }
+            case BOOLEAN -> {
+                return "Z";
+            }
+            case ARRAYREF -> {
+                ArrayType arrayType = (ArrayType) param;
+                return "[" + generateType(arrayType.getElementType());
+            }
+            case VOID -> {
+                return "V";
+            }
+            case OBJECTREF -> {
+                ClassType classType = (ClassType) param;
+                return "L" + classType.getName() + ";";
+            }
+            default -> {
+                System.out.println("Not implemented type: " + type);
+                 throw new NotImplementedException(type);
+            }
+        }
+    }
+
     private String generateInstruction(Instruction instruction) {
         return switch (instruction.getInstType()) {
 //                    ASSIGN,
@@ -77,173 +257,127 @@ public class JasminGenerator {
     }
 
     private String generateCall(CallInstruction instruction) {
+        CallType type = instruction.getInvocationType();
+        return switch (type) {
+            case invokestatic -> generateInvokeStatic(instruction);
+            case invokespecial -> generateInvokeSpecial(instruction);
+            case invokevirtual -> generateInvokeVirtual(instruction);
+            case invokeinterface -> generateInvokeInterface(instruction);
+            case NEW -> generateNew(instruction);
+            case arraylength -> generateArrayLength(instruction);
+            case ldc -> generateLoadConstant(instruction);
+            default -> throw new NotImplementedException(type);
+        };
+    }
+
+    private String generateLoadConstant(CallInstruction instruction) {
         var code = new StringBuilder();
+
+        // generate code for calling method
+        var caller = instruction.getCaller().toString();
+        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
+        code.append("ldc ").append(name).append(NL);
+
+        return code.toString();
+    }
+
+    private String generateArrayLength(CallInstruction instruction) {
+        var code = new StringBuilder();
+
+        // generate code for calling method
+        var caller = instruction.getCaller().toString();
+        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
+        code.append("arraylength").append(NL);
+
+        return code.toString();
+    }
+
+    private String generateNew(CallInstruction instruction) {
+        var code = new StringBuilder();
+
+        // generate code for calling method
+        var caller = instruction.getCaller().toString();
+        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
+        code.append("new ").append(name).append(NL);
+        code.append("dup").append(NL);
+
+        return code.toString();
+    }
+
+    private String generateInvokeInterface(CallInstruction instruction) {
+        var code = new StringBuilder();
+
+        // generate code for calling method
+        var caller = instruction.getCaller().toString();
+        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
+        code.append("invokeinterface ").append(name).append("(");
 
         // generate code for loading arguments
         for (var arg : instruction.getArguments()) {
-            code.append(generators.apply(arg));
+            code.append(generateParam(arg));
         }
+
+        code.append(")").append(generateParam(instruction.getReturnType()));
+
+        return code.toString();
+    }
+
+    private String generateInvokeVirtual(CallInstruction instruction) {
+        var code = new StringBuilder();
 
         // generate code for calling method
-        code.append("invokestatic ").append(instruction.getMethodName()).append(NL);
+        var caller = instruction.getCaller().toString();
+        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
+        code.append("invokevirtual ").append(name).append("(");
+
+        // generate code for loading arguments
+        for (var arg : instruction.getArguments()) {
+            code.append(generateParam(arg));
+        }
+
+        code.append(")").append(generateParam(instruction.getReturnType()));
 
         return code.toString();
     }
 
-    public List<Report> getReports() {
-        return reports;
-    }
-
-    public String build() {
-
-        // This way, build is idempotent
-        if (code == null) {
-            System.out.println(ollirResult.getOllirClass());
-            code = generators.apply(ollirResult.getOllirClass());
-        }
-
-        return code;
-    }
-
-
-    private String generateClassUnit(ClassUnit classUnit) {
-
+    private String generateInvokeStatic(CallInstruction instruction) {
         var code = new StringBuilder();
 
-        // generate class name
-        var className = ollirResult.getOllirClass().getClassName();
-        code.append(".class ").append(className).append(NL).append(NL);
+        // generate code for calling method
+        var caller = instruction.getCaller().toString();
+        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
+        code.append("invokestatic ").append(name).append("(");
 
-        // TODO: Hardcoded to Object, needs to be expanded
-        // verificar nome da classe tem de ser absolute path
-        if (ollirResult.getOllirClass().getSuperClass() != null) {
-            code.append(".super ").append(ollirResult.getOllirClass().getSuperClass()).append(NL);
-
-            // call constructor of super class
-            var superConstructor = """
-                ;super constructor
-                .method public <init>()V
-                    aload_0
-                    invokespecial %s/<init>()V
-                    return
-                .end method
-                """.formatted(ollirResult.getOllirClass().getSuperClass());
-            code.append(superConstructor);
-        } else {
-            code.append(".super java/lang/Object").append(NL);
-
-            // generate a single constructor method
-            var defaultConstructor = """
-                ;default constructor
-                .method public <init>()V
-                    aload_0
-                    invokespecial java/lang/Object/<init>()V
-                    return
-                .end method
-                """;
-            code.append(defaultConstructor);
+        // generate code for loading arguments
+        for (var arg : instruction.getArguments()) {
+            code.append(generateParam(arg));
         }
 
-
-        // generate code for all other methods
-        for (var method : ollirResult.getOllirClass().getMethods()) {
-
-            // Ignore constructor, since there is always one constructor
-            // that receives no arguments, and has been already added
-            // previously
-            if (method.isConstructMethod()) {
-                continue;
-            }
-
-            code.append(generators.apply(method));
-        }
+        code.append(")").append(generateParam(instruction.getReturnType()));
 
         return code.toString();
     }
 
-
-    private String generateMethod(Method method) {
-
-        // set method
-        currentMethod = method;
-
+    private String generateInvokeSpecial(CallInstruction instruction) {
         var code = new StringBuilder();
 
-        // calculate modifier
-        var modifier = method.getMethodAccessModifier() != AccessModifier.DEFAULT ?
-                method.getMethodAccessModifier().name().toLowerCase() + " " :
-                "";
+        // generate code for calling method
+        var caller = instruction.getCaller().toString();
+        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
 
-        if (method.isStaticMethod()) {
-            modifier += "static ";
+        // init hard coded because only constructors are invokespecial
+        code.append("invokespecial ").append(name).append("/").append("<init>");
+        code.append("(");
+
+        // generate code for loading arguments
+        for (var arg : instruction.getArguments()) {
+            code.append(generateParam(arg));
         }
 
-        if (method.isFinalMethod()) {
-            modifier += "final ";
-        }
-
-        var methodName = method.getMethodName();
-
-        // TODO: Hardcoded param types and return type, needs to be expanded
-        code.append("\n.method ").append(modifier).append(methodName);
-
-        // Add parameters
-        var params = method.getParams().stream()
-                .map(this::generateParam).toList();
-
-        code.append("(").append(String.join("", params)).append(")");
-
-        var returnType = generateParam(method.getReturnType());
-        code.append(returnType).append(NL);
-
-        // Add limits
-        code.append(TAB).append(".limit stack 99").append(NL);
-        code.append(TAB).append(".limit locals 99").append(NL);
-
-        for (var inst : method.getInstructions()) {
-            var instCode = StringLines.getLines(generators.apply(inst)).stream()
-                    .collect(Collectors.joining(NL + TAB, TAB, NL));
-
-            code.append(instCode);
-        }
-
-        code.append(".end method\n");
-
-        // unset method
-        currentMethod = null;
+        code.append(")").append(generateParam(instruction.getReturnType()));
+        code.append(NL);
 
         return code.toString();
-    }
-
-    private String generateParam(Element param) {
-        ElementType type = param.getType().getTypeOfElement();
-
-        return generateType(type);
-    }
-
-    private String generateParam(Type param) {
-        ElementType type = param.getTypeOfElement();
-        System.out.println(param);
-
-        return generateType(type);
-    }
-
-    private String generateType(ElementType type) {
-        if (type == ElementType.INT32) {
-            return "I";
-        } else if (type == ElementType.STRING) {
-            return "Ljava/lang/String;";
-        } else if (type == ElementType.BOOLEAN) {
-            return "Z";
-        } else if (type == ElementType.ARRAYREF) {
-            return "[Ljava/lang/String;";
-        } else if (type == ElementType.VOID) {
-            return "V";
-        } else {
-//             throw new NotImplementedException(type);
-            System.out.println("Not implemented type: " + type);
-        }
-        return "";
     }
 
     private String generateAssign(AssignInstruction assign) {
@@ -255,8 +389,6 @@ public class JasminGenerator {
         // store value in the stack in destination
         var lhs = assign.getDest();
 
-        System.out.println(assign.toTree());
-
         if (!(lhs instanceof Operand)) {
 //            throw new NotImplementedException(lhs.getClass());
             System.out.println("Not implemented type: " + lhs.getClass());
@@ -267,8 +399,11 @@ public class JasminGenerator {
         // get register
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
-        // TODO: Hardcoded for int type, needs to be expanded
-        code.append("istore ").append(reg).append(NL);
+        switch (operand.getType().getTypeOfElement()) {
+            case INT32, BOOLEAN -> code.append("istore_").append(reg).append(NL);
+            case STRING, ARRAYREF, OBJECTREF -> code.append("astore_").append(reg).append(NL);
+            default -> throw new NotImplementedException(operand.getType().getTypeOfElement());
+        }
 
         return code.toString();
     }
