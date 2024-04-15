@@ -49,7 +49,7 @@ public class JmmSymbolTableBuilder {
     }
 
     private static List<String> buildImports(List<JmmNode> importList) {
-        return importList.stream().map(node -> node.get("name")).toList();
+        return importList.stream().map(node -> node.get("ID")).toList();
     }
 
     private static Map<String, Type> buildReturnTypes(JmmNode classDecl) {
