@@ -41,7 +41,7 @@ public class TypeError extends AnalysisVisitor {
      */
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         currentMethod = method;
-        System.out.println(method.toTree());
+
         return null;
     }
 
