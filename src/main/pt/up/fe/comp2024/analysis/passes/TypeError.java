@@ -13,17 +13,34 @@ import pt.up.fe.comp2024.ast.TypeUtils;
  * A visitor that checks for type errors in the AST.
  */
 public class TypeError extends AnalysisVisitor {
+
+    private JmmNode currentMethod;
+
     /**
      * Creates a new instance of the {@link TypeError} class.
      */
     @Override
     public void buildVisitor() {
+        addVisit(Kind.METHOD_DECL, this::visitMethodDecl);
+
         addVisit(Kind.ARRAY_ACCESS_EXPR, this::visitArrayAccessExpr);
         addVisit(Kind.BINARY_EXPR, this::visitBinaryExpr);
         addVisit(Kind.ASSIGN_STMT, this::visitAssignStmt);
         addVisit(Kind.IF_ELSE_STMT, this::visitIfElseStmt);
         addVisit(Kind.WHILE_STMT, this::visitWhileStmt);
         addVisit(Kind.RETURN_STMT, this::visitReturnStmt);
+    }
+
+    /**
+     * Visits a method declaration node and sets the current method name.
+     *
+     * @param method The method declaration node to visit.
+     * @param table The symbol table.
+     * @return null
+     */
+    private Void visitMethodDecl(JmmNode method, SymbolTable table) {
+        currentMethod = method;
+        return null;
     }
 
     /**
@@ -127,7 +144,32 @@ public class TypeError extends AnalysisVisitor {
         return null;
     }
 
+    /**
+     * Visits an assignment statement node and checks if the assigned value is compatible with the variable type.
+     * If they are not, an error report is added.
+     *
+     * @param assignStmt The assignment statement node to visit.
+     * @param table The symbol table.
+     * @return null
+     */
     private Void visitAssignStmt(JmmNode assignStmt, SymbolTable table) {
+        var left = assignStmt.getChildren().get(0);
+        var right = assignStmt.getChildren().get(1);
+
+        var leftType = TypeUtils.getExprType(left, table);
+        var rightType = TypeUtils.getExprType(right, table);
+
+        if (!TypeUtils.areTypesAssignable(leftType, rightType)) {
+            var message = "Cannot assign a value of type '" + rightType.getName() + "' to a variable of type '" + leftType.getName() + "'.";
+            addReport(Report.newError(
+                    Stage.SEMANTIC,
+                    NodeUtils.getLine(assignStmt),
+                    NodeUtils.getColumn(assignStmt),
+                    message,
+                    null)
+            );
+        }
+
         return null;
     }
 
@@ -185,7 +227,47 @@ public class TypeError extends AnalysisVisitor {
         return null;
     }
 
+    /**
+     * Visits a return statement node and checks if the returned value is compatible with the method return type.
+     * If they are not, an error report is added.
+     *
+     * @param returnStmt The return statement node to visit.
+     * @param table The symbol table.
+     * @return null
+     */
     private Void visitReturnStmt(JmmNode returnStmt, SymbolTable table) {
+        var methodReturnType = table.getReturnType(currentMethod.get("name"));
+
+        // Check if the method returns 'void', in which case it should not return any value
+        if (methodReturnType.getName().equals(TypeUtils.getVoidTypeName())) {
+            if (returnStmt.getNumChildren() > 0) {
+                var message = "Cannot return a value from a method that returns 'void'.";
+                addReport(Report.newError(
+                        Stage.SEMANTIC,
+                        NodeUtils.getLine(returnStmt),
+                        NodeUtils.getColumn(returnStmt),
+                        message,
+                        null)
+                );
+            }
+
+            return null;
+        }
+
+        var returnValue = returnStmt.getChildren().get(0);
+        var returnType = TypeUtils.getExprType(returnValue, table);
+
+        if (!TypeUtils.areTypesAssignable(methodReturnType, returnType)) {
+            var message = "Cannot return a value of type '" + returnType.getName() + "' from a method that returns '" + methodReturnType.getName() + "'.";
+            addReport(Report.newError(
+                    Stage.SEMANTIC,
+                    NodeUtils.getLine(returnStmt),
+                    NodeUtils.getColumn(returnStmt),
+                    message,
+                    null)
+            );
+        }
+
         return null;
     }
 }

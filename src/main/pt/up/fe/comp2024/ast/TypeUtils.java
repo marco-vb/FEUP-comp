@@ -11,6 +11,7 @@ public class TypeUtils {
 
     private static final String INT_TYPE_NAME = "int";
     private static final String BOOLEAN_TYPE_NAME = "boolean";
+    private static final String VOID_TYPE_NAME = "void";
 
     /**
      * Gets the name of the int type.
@@ -31,6 +32,15 @@ public class TypeUtils {
     }
 
     /**
+     * Gets the name of the void type.
+     *
+     * @return The name of the void type.
+     */
+    public static String getVoidTypeName() {
+        return VOID_TYPE_NAME;
+    }
+
+    /**
      * Gets the type of an expression.
      *
      * @param expr  The expression node.
@@ -42,8 +52,10 @@ public class TypeUtils {
 
         return switch (kind) {
             case BINARY_EXPR -> getBinExprType(expr);
-            case VAR_REF_EXPR -> getVarExprType(expr, table);
-            case ARRAY_ACCESS_EXPR -> new Type(INT_TYPE_NAME, true);
+            case VAR_REF_EXPR, IDENTIFIER -> getVarExprType(expr, table);
+            case FUNC_EXPR -> getFuncExprType(expr, table);
+            case NEW_EXPR -> getNewExprType(expr);
+            case ARRAY_EXPR, ARRAY_ACCESS_EXPR, NEW_ARRAY_EXPR -> new Type(INT_TYPE_NAME, true);
             case INTEGER_LITERAL -> new Type(INT_TYPE_NAME, false);
             case BOOLEAN_LITERAL -> new Type(BOOLEAN_TYPE_NAME, false);
             default -> throw new UnsupportedOperationException("Can't compute type for expression kind '" + kind + "'");
@@ -109,6 +121,39 @@ public class TypeUtils {
         throw new RuntimeException("Variable '" + varName + "' not found in the symbol table");
     }
 
+    /**
+     * Gets the type of a function expression.
+     *
+     * @param funcExpr The function expression node.
+     * @param table    The symbol table.
+     * @return The type of the function expression.
+     */
+    private static Type getFuncExprType(JmmNode funcExpr, SymbolTable table) {
+        var methodName = funcExpr.get("methodname");
+        var methods = table.getMethods();
+
+        // Search for the method in the symbol table
+        for (var method : methods) {
+            if (method.equals(methodName)) {
+                return table.getReturnType(method);
+            }
+        }
+
+        // If the method is not found, assume the return type is compatible with any type
+        return new Type("any", false);
+    }
+
+    /**
+     * Gets the type of a new expression.
+     *
+     * @param newExpr The new expression node.
+     * @return The type of the new expression.
+     */
+    private static Type getNewExprType(JmmNode newExpr) {
+        var className = newExpr.get("classname");
+
+        return new Type(className, false);
+    }
 
     /**
      * Checks if the source type can be assigned to the destination type.

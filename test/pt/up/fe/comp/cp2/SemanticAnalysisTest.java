@@ -71,7 +71,6 @@ public class SemanticAnalysisTest {
     @Test
     public void objectAssignmentFail() {
         var result = TestUtils.analyse(SpecsIo.getResource("pt/up/fe/comp/cp2/semanticanalysis/ObjectAssignmentFail.jmm"));
-        System.out.println(result.getReports());
         TestUtils.mustFail(result);
         System.out.println(result.getReports());
     }
