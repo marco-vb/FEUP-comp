@@ -77,9 +77,12 @@ public class JasminGenerator {
 
         var code = new StringBuilder();
 
+        var modifier = classUnit.getClassAccessModifier() != AccessModifier.DEFAULT ?
+                classUnit.getClassAccessModifier().name().toLowerCase() + " " : "public ";
+
         // generate class name
         var className = ollirResult.getOllirClass().getClassName();
-        code.append(".class ").append(className).append(NL);
+        code.append(".class ").append(modifier).append(className).append(NL);
 
 
         // generate super class
@@ -232,46 +235,25 @@ public class JasminGenerator {
 
     private String generateType(Type param) {
         ElementType type = param.getTypeOfElement();
-        switch (type) {
-            case INT32 -> {
-                return "I";
-            }
-            case STRING -> {
-                return "Ljava/lang/String;";
-            }
-            case BOOLEAN -> {
-                return "Z";
-            }
+        return switch (type) {
+            case INT32 -> "I";
+            case STRING -> "Ljava/lang/String;";
+            case BOOLEAN -> "Z";
             case ARRAYREF -> {
                 ArrayType arrayType = (ArrayType) param;
-                return "[" + generateType(arrayType.getElementType());
+                yield "[" + generateType(arrayType.getElementType());
             }
-            case VOID -> {
-                return "V";
-            }
+            case VOID -> "V";
             case OBJECTREF -> {
                 ClassType classType = (ClassType) param;
-                return "L" + classType.getName() + ";";
+                yield "L" + classType.getName() + ";";
             }
-            default -> {
-                System.out.println("Not implemented type: " + type);
-                 throw new NotImplementedException(type);
-            }
-        }
+            default -> throw new NotImplementedException(type);
+        };
     }
 
     private String generateInstruction(Instruction instruction) {
         return switch (instruction.getInstType()) {
-//                    ASSIGN,
-//                    CALL,
-//                    GOTO,
-//                    BRANCH,
-//                    RETURN,
-//                    PUTFIELD,
-//                    GETFIELD,
-//                    UNARYOPER,
-//                    BINARYOPER,
-//                    NOPER;
             case ASSIGN -> generateAssign((AssignInstruction) instruction);
             case UNARYOPER -> generateSingleOp((SingleOpInstruction) instruction);
             case GOTO -> throw new NotImplementedException(instruction.getInstType());
@@ -364,9 +346,12 @@ public class JasminGenerator {
     private String generateArrayLength(CallInstruction instruction) {
         var code = new StringBuilder();
 
-        // generate code for calling method
-        var caller = instruction.getCaller().toString();
-        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
+        // push array to the stack
+        code.append("aload_");
+        code.append(currentMethod.getVarTable().get(instruction.getCaller().toString()).getVirtualReg());
+        code.append(NL);
+
+        // get array length
         code.append("arraylength").append(NL);
 
         return code.toString();
@@ -387,6 +372,13 @@ public class JasminGenerator {
     private String generateInvokeInterface(CallInstruction instruction) {
         var code = new StringBuilder();
 
+        // push object onto the stack
+        var object = instruction.getOperands().get(0).toString();
+        var objectName = object.substring(object.lastIndexOf(":") + 2, object.lastIndexOf("."));
+        code.append("aload_");
+        code.append(currentMethod.getVarTable().get(objectName).getVirtualReg());
+        code.append(NL);
+
         // generate code for calling method
         var caller = instruction.getCaller().toString();
         var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
@@ -405,17 +397,30 @@ public class JasminGenerator {
     private String generateInvokeVirtual(CallInstruction instruction) {
         var code = new StringBuilder();
 
-        // generate code for calling method
-        var caller = instruction.getCaller().toString();
-        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
-        code.append("invokevirtual ").append(name).append("(");
+        // push object onto the stack
+        var caller = instruction.getCaller();
+        code.append(generateOperand((Operand) caller));
 
         // generate code for loading arguments
+        for (var arg : instruction.getArguments()) {
+            code.append(generateOperand((Operand) arg));
+        }
+
+        // generate code for calling method
+        var method = ((LiteralElement) instruction.getMethodName()).getLiteral();
+        var methodName = method.substring(1, method.length() - 1);
+        var className = caller.getType().toString();
+        className = className.substring(className.lastIndexOf("(") + 1, className.length() - 1);
+        code.append("invokevirtual ").append(className).append("/");
+        code.append(methodName).append("(");
+
+        // generate code for arguments types
         for (var arg : instruction.getArguments()) {
             code.append(generateParam(arg));
         }
 
         code.append(")").append(generateParam(instruction.getReturnType()));
+        code.append(NL);
 
         return code.toString();
     }
@@ -424,30 +429,8 @@ public class JasminGenerator {
         var code = new StringBuilder();
 
         // generate code for calling method
-        var caller = instruction.getCaller().toString();
-        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
-        code.append("invokestatic ").append(name).append("(");
-
-        // generate code for loading arguments
-        for (var arg : instruction.getArguments()) {
-            code.append(generateParam(arg));
-        }
-
-        code.append(")").append(generateParam(instruction.getReturnType()));
-
-        return code.toString();
-    }
-
-    private String generateInvokeSpecial(CallInstruction instruction) {
-        var code = new StringBuilder();
-
-        // generate code for calling method
-        var caller = instruction.getCaller().toString();
-        var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
-
-        // init hard coded because only constructors are invokespecial
-        code.append("invokespecial ").append(name).append("/").append("<init>");
-        code.append("(");
+        var caller = ((Operand) instruction.getCaller()).getName();
+        code.append("invokestatic ").append(caller).append("(");
 
         // generate code for loading arguments
         for (var arg : instruction.getArguments()) {
@@ -460,6 +443,25 @@ public class JasminGenerator {
         return code.toString();
     }
 
+    private String generateInvokeSpecial(CallInstruction instruction) {
+        // This method is hardcoded for constructors because in JMM
+        // constructors don't take arguments and are the only invokespecial
+        var code = new StringBuilder();
+
+        // push object onto the stack
+        code.append(generateOperand((Operand) instruction.getOperands().get(0)));
+
+        // generate code for calling method
+        var caller = ((Operand) instruction.getCaller()).getName();
+
+        // init hard coded because only constructors are invokespecial
+        code.append("invokespecial ").append(caller).append("/<init>");
+        code.append("()").append(generateParam(instruction.getReturnType()));
+        code.append(NL);
+
+        return code.toString();
+    }
+
     private String generateAssign(AssignInstruction assign) {
         var code = new StringBuilder();
 
@@ -467,23 +469,8 @@ public class JasminGenerator {
         code.append(generators.apply(assign.getRhs()));
 
         // store value in the stack in destination
-        var lhs = assign.getDest();
-
-        if (!(lhs instanceof Operand)) {
-//            throw new NotImplementedException(lhs.getClass());
-            System.out.println("Not implemented type: " + lhs.getClass());
-        }
-
-        var operand = (Operand) lhs;
-
-        // get register
-        var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
-
-        switch (operand.getType().getTypeOfElement()) {
-            case INT32, BOOLEAN -> code.append("istore_").append(reg).append(NL);
-            case STRING, ARRAYREF, OBJECTREF -> code.append("astore_").append(reg).append(NL);
-            default -> throw new NotImplementedException(operand.getType().getTypeOfElement());
-        }
+        var lhs = (Operand) assign.getDest();
+        code.append(generateAssigned(lhs));
 
         return code.toString();
     }
@@ -497,9 +484,23 @@ public class JasminGenerator {
     }
 
     private String generateOperand(Operand operand) {
-        // get register
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
-        return "iload " + reg + NL;
+
+        return switch (operand.getType().getTypeOfElement()) {
+            case INT32, BOOLEAN -> "iload_" + reg + NL;
+            case STRING, ARRAYREF, OBJECTREF, THIS -> "aload_" + reg + NL;
+            default -> throw new NotImplementedException(operand.getType().getTypeOfElement());
+        };
+    }
+
+    private String generateAssigned(Operand operand) {
+        var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
+
+        return switch (operand.getType().getTypeOfElement()) {
+            case INT32, BOOLEAN -> "istore_" + reg + NL;
+            case STRING, ARRAYREF, OBJECTREF -> "astore_" + reg + NL;
+            default -> throw new NotImplementedException(operand.getType().getTypeOfElement());
+        };
     }
 
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
@@ -513,7 +514,22 @@ public class JasminGenerator {
         var op = switch (binaryOp.getOperation().getOpType()) {
             case ADD -> "iadd";
             case MUL -> "imul";
-            default -> "sus"; // throw new NotImplementedException(binaryOp.getOperation().getOpType());
+            case SUB -> "isub";
+            case DIV -> "idiv";
+            case SHR -> "ishr";
+            case SHL -> "ishl";
+            case SHRR -> "iushr";
+            case XOR -> "ixor";
+            case AND, ANDB, NOTB -> "iand";
+            case OR, ORB -> "ior";
+            case LTH -> "if_icmplt";
+            case GTH -> "if_icmpgt";
+            case EQ -> "if_icmpeq";
+            case NEQ -> "if_icmpne";
+            case LTE -> "if_icmple";
+            case GTE -> "if_icmpge";
+            case NOT -> "ineg";
+            default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
         };
 
         code.append(op).append(NL);
@@ -521,20 +537,19 @@ public class JasminGenerator {
         return code.toString();
     }
 
-    private String generateReturn(ReturnInstruction returnInst) {
-        var code = new StringBuilder();
+    private String generateReturn(ReturnInstruction inst) {
+        var type = inst.getReturnType().getTypeOfElement();
+        String code = "";
 
-        // TODO: Hardcoded to int return type, needs to be expanded
-
-        if (returnInst.getReturnType().getTypeOfElement() == ElementType.VOID) {
-            code.append("return").append(NL);
-            return code.toString();
+        if (type != ElementType.VOID) {
+            code = generators.apply(inst.getOperand());
         }
 
-        code.append(generators.apply(returnInst.getOperand()));
-        code.append("ireturn").append(NL);
-
-        return code.toString();
+        return switch (type) {
+            case INT32, BOOLEAN -> code + "ireturn" + NL;
+            case STRING, ARRAYREF, OBJECTREF -> code + "areturn" + NL;
+            case VOID -> "return" + NL;
+            default -> throw new NotImplementedException(type);
+        };
     }
-
 }

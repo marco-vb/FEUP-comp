@@ -23,6 +23,8 @@ istore 4
 iload 4
 ireturn
 .end method
+
+
 .method public static main([Ljava/lang/String;)V
 .limit stack 4
 .limit locals 7
