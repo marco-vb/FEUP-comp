@@ -55,8 +55,8 @@ public class TypeUtils {
             case VAR_REF_EXPR, IDENTIFIER -> getVarExprType(expr, table);
             case FUNC_EXPR -> getFuncExprType(expr, table);
             case NEW_EXPR -> getNewExprType(expr);
-            case ARRAY_EXPR, ARRAY_ACCESS_EXPR, NEW_ARRAY_EXPR -> new Type(INT_TYPE_NAME, true);
-            case INTEGER_LITERAL -> new Type(INT_TYPE_NAME, false);
+            case ARRAY_EXPR, NEW_ARRAY_EXPR -> new Type(INT_TYPE_NAME, true);   // Array expressions are always of type int[]
+            case INTEGER_LITERAL, ARRAY_ACCESS_EXPR -> new Type(INT_TYPE_NAME, false);
             case BOOLEAN_LITERAL -> new Type(BOOLEAN_TYPE_NAME, false);
             default -> throw new UnsupportedOperationException("Can't compute type for expression kind '" + kind + "'");
         };
@@ -163,6 +163,6 @@ public class TypeUtils {
      * @return true if the source type can be assigned to the destination type, false otherwise.
      */
     public static boolean areTypesAssignable(Type sourceType, Type destinationType) {
-        return sourceType.getName().equals(destinationType.getName());
+        return sourceType.equals(destinationType) || sourceType.getName().equals("any") || destinationType.getName().equals("any");
     }
 }

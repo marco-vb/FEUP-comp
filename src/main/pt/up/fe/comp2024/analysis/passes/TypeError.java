@@ -1,6 +1,7 @@
 package pt.up.fe.comp2024.analysis.passes;
 
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
+import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.Stage;
@@ -40,6 +41,7 @@ public class TypeError extends AnalysisVisitor {
      */
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         currentMethod = method;
+        System.out.println(method.toTree());
         return null;
     }
 
@@ -168,6 +170,29 @@ public class TypeError extends AnalysisVisitor {
                     message,
                     null)
             );
+
+            return null;
+        }
+
+        if (leftType.isArray() && rightType.isArray()) {
+            if (Kind.ARRAY_EXPR.check(right)) {
+                for (var child : right.getChildren()) {
+                    var childType = TypeUtils.getExprType(child, table);
+
+                    var arrayElementType = new Type(leftType.getName(), false);
+                    if (!TypeUtils.areTypesAssignable(arrayElementType, childType)) {
+                        var message = "Array elements must be of type '" + arrayElementType.getName() + "'. Found: " + childType.getName() + ".";
+                        addReport(Report.newError(
+                                Stage.SEMANTIC,
+                                NodeUtils.getLine(assignStmt),
+                                NodeUtils.getColumn(assignStmt),
+                                message,
+                                null)
+                        );
+                    }
+                }
+
+            }
         }
 
         return null;
