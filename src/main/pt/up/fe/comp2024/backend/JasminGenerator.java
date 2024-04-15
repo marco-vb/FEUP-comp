@@ -438,7 +438,10 @@ public class JasminGenerator {
 
         // generate code for calling method
         var caller = ((Operand) instruction.getCaller()).getName();
-        code.append("invokestatic ").append(caller).append("(");
+        code.append("invokestatic ").append(caller).append("/");
+        var methodName = ((LiteralElement) instruction.getMethodName()).getLiteral();
+        methodName = methodName.substring(1, methodName.length() - 1);
+        code.append(methodName).append("(");
 
         // generate code for loading arguments
         for (var arg : instruction.getArguments()) {
