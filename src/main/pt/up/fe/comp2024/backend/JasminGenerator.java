@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 public class JasminGenerator {
 
     private static final String NL = "\n";
-    private static final String TAB = "   ";
+    private static final String TAB = "    ";
 
     private final OllirResult ollirResult;
 
@@ -373,11 +373,12 @@ public class JasminGenerator {
         var code = new StringBuilder();
 
         // push object onto the stack
-        var object = instruction.getOperands().get(0).toString();
-        var objectName = object.substring(object.lastIndexOf(":") + 2, object.lastIndexOf("."));
-        code.append("aload_");
-        code.append(currentMethod.getVarTable().get(objectName).getVirtualReg());
-        code.append(NL);
+        code.append(generateOperand((Operand) instruction.getCaller()));
+
+        // generate code for loading arguments
+        for (var arg : instruction.getArguments()) {
+            code.append(generateOperand((Operand) arg));
+        }
 
         // generate code for calling method
         var caller = instruction.getCaller().toString();
@@ -409,8 +410,10 @@ public class JasminGenerator {
         // generate code for calling method
         var method = ((LiteralElement) instruction.getMethodName()).getLiteral();
         var methodName = method.substring(1, method.length() - 1);
+
         var className = caller.getType().toString();
         className = className.substring(className.lastIndexOf("(") + 1, className.length() - 1);
+
         code.append("invokevirtual ").append(className).append("/");
         code.append(methodName).append("(");
 
@@ -427,6 +430,11 @@ public class JasminGenerator {
 
     private String generateInvokeStatic(CallInstruction instruction) {
         var code = new StringBuilder();
+
+        // generate code for loading arguments
+        for (var arg : instruction.getArguments()) {
+            code.append(generateOperand((Operand) arg));
+        }
 
         // generate code for calling method
         var caller = ((Operand) instruction.getCaller()).getName();
@@ -449,13 +457,13 @@ public class JasminGenerator {
         var code = new StringBuilder();
 
         // push object onto the stack
-        code.append(generateOperand((Operand) instruction.getOperands().get(0)));
+        code.append(generateOperand((Operand) instruction.getCaller()));
 
         // generate code for calling method
-        var caller = ((Operand) instruction.getCaller()).getName();
-
+        var caller = instruction.getCaller().toString();
+        var className = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
         // init hard coded because only constructors are invokespecial
-        code.append("invokespecial ").append(caller).append("/<init>");
+        code.append("invokespecial ").append(className).append("/<init>");
         code.append("()").append(generateParam(instruction.getReturnType()));
         code.append(NL);
 
@@ -539,15 +547,10 @@ public class JasminGenerator {
 
     private String generateReturn(ReturnInstruction inst) {
         var type = inst.getReturnType().getTypeOfElement();
-        String code = "";
-
-        if (type != ElementType.VOID) {
-            code = generators.apply(inst.getOperand());
-        }
 
         return switch (type) {
-            case INT32, BOOLEAN -> code + "ireturn" + NL;
-            case STRING, ARRAYREF, OBJECTREF -> code + "areturn" + NL;
+            case INT32, BOOLEAN -> generators.apply(inst.getOperand()) + "ireturn" + NL;
+            case STRING, ARRAYREF, OBJECTREF -> generators.apply(inst.getOperand()) + "areturn" + NL;
             case VOID -> "return" + NL;
             default -> throw new NotImplementedException(type);
         };
