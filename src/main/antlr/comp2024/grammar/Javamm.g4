@@ -68,8 +68,8 @@ arg
     ;
 
 stmt
-    : ID '=' expr ';'                   #AssignStmt
-    | ID '[' expr ']' '=' expr ';'      #ArrayAssignStmt
+    : name=ID '=' expr ';'              #AssignStmt
+    | name=ID '[' expr ']' '=' expr ';' #ArrayAssignStmt
     | IF '(' expr ')' stmt ELSE stmt    #IfElseStmt
     | WHILE '(' expr ')' stmt           #WhileStmt
     | '{' stmt* '}'                     #ScopeStmt
@@ -90,8 +90,8 @@ expr
       expr                              #BinaryExpr
     | expr ('==') expr                  #BinaryExpr
     | expr ('||' | '&&') expr           #BinaryExpr
-    | expr '.' ID                       #FuncExpr
-    | expr '.' ID
+    | expr '.' name=ID                  #FuncExpr
+    | expr '.' name=ID
       '(' (expr (',' expr)* )? ')'      #FuncExpr
     | expr ('.' expr)+                  #MemberExpr
     | value=INTEGER                     #IntegerLiteral

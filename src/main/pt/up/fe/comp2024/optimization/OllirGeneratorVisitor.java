@@ -42,7 +42,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(PARAM, this::visitParam);
         addVisit(RETURN_STMT, this::visitReturn);
         addVisit(ASSIGN_STMT, this::visitAssignStmt);
-        addVisit(ARGS, this::visitArgs);
+        addVisit(ARGUMENT, this::visitArgs);
         addVisit(SCOPE_STMT, this::visitScopeStmt);
         addVisit(FUNC_EXPR, this::visitFuncExpr);
         addVisit(VAR_REF_EXPR, this::visitVarRefExpr);
@@ -122,13 +122,12 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     private String visitAssignStmt(JmmNode node, Void unused) {
 
-        var lhs = exprVisitor.visit(node.getJmmChild(0));
-        var rhs = exprVisitor.visit(node.getJmmChild(1));
+        var name = node.get("name");
+        var rhs = exprVisitor.visit(node.getJmmChild(0));
 
         StringBuilder code = new StringBuilder();
 
         // code to compute the children
-        code.append(lhs.getComputation());
         code.append(rhs.getComputation());
 
         // code to compute self
@@ -137,7 +136,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         String typeString = toOllirType(thisType);
 
 
-        code.append(lhs.getCode());
+        code.append(name);
         code.append(SPACE);
 
         code.append(ASSIGN);
