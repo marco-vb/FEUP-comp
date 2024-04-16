@@ -11,6 +11,7 @@ import pt.up.fe.comp2024.analysis.passes.UndeclaredVariable;
 import pt.up.fe.comp2024.analysis.passes.TypeError;
 import pt.up.fe.comp2024.analysis.passes.InvalidArrayAccess;
 import pt.up.fe.comp2024.analysis.passes.UndefinedMethod;
+import pt.up.fe.comp2024.analysis.passes.ThisInStaticMethod;
 import pt.up.fe.comp2024.symboltable.JmmSymbolTableBuilder;
 
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ public class JmmAnalysisImpl implements JmmAnalysis {
         analysisPasses.add(new TypeError());
         analysisPasses.add(new InvalidArrayAccess());
         analysisPasses.add(new UndefinedMethod());
+        analysisPasses.add(new ThisInStaticMethod());
     }
 
     /**
