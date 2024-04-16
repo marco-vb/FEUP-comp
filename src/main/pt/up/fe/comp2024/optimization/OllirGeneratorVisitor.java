@@ -123,7 +123,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
 
     private String visitAssignStmt(JmmNode node, Void unused) {
-        System.out.println("ABC");
+        /*System.out.println("ABC");
         System.out.println(node.getJmmChild(0));
         System.out.println(node.getJmmChild(1));
         var lhs = exprVisitor.visit(node.getJmmChild(0));
@@ -152,7 +152,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         code.append(END_STMT);
 
-        return code.toString();
+        return code.toString();*/
+        return "";
     }
 
 
