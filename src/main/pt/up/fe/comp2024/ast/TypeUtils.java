@@ -54,6 +54,7 @@ public class TypeUtils {
             case BINARY_EXPR -> getBinExprType(expr);
             case VAR_REF_EXPR, IDENTIFIER -> getVarExprType(expr, table);
             case FUNC_EXPR -> getFuncExprType(expr, table);
+            case ARGUMENT -> getArgumentType(expr, table);
             case NEW_EXPR -> getNewExprType(expr);
             case ARRAY_EXPR, NEW_ARRAY_EXPR -> new Type(INT_TYPE_NAME, true);   // Array expressions are always of type int[]
             case INTEGER_LITERAL, ARRAY_ACCESS_EXPR -> new Type(INT_TYPE_NAME, false);
@@ -153,6 +154,19 @@ public class TypeUtils {
         var className = newExpr.get("classname");
 
         return new Type(className, false);
+    }
+
+    /**
+     * Gets the type of an argument.
+     *
+     * @param argument The argument node.
+     * @param table    The symbol table.
+     * @return The type of the argument.
+     */
+    private static Type getArgumentType(JmmNode argument, SymbolTable table) {
+        var type = argument.getChildren().get(0);
+
+        return new Type(type.get("name"), Boolean.parseBoolean(type.get("isArray")));
     }
 
     /**

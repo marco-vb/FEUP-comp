@@ -29,10 +29,21 @@ public enum Kind {
     NEW_EXPR,
     NEW_ARRAY_EXPR,
     ARRAY_EXPR,
-    FUNC_EXPR;
+    FUNC_EXPR,
+    ARGUMENT;
 
     private static final Set<Kind> STATEMENTS = Set.of(ASSIGN_STMT, RETURN_STMT, IF_ELSE_STMT, WHILE_STMT);
-    private static final Set<Kind> EXPRESSIONS = Set.of(BINARY_EXPR, INTEGER_LITERAL, VAR_REF_EXPR, ARRAY_ACCESS_EXPR, BOOLEAN_LITERAL, IDENTIFIER, NEW_EXPR, NEW_ARRAY_EXPR, ARRAY_EXPR, FUNC_EXPR);
+    private static final Set<Kind> EXPRESSIONS = Set.of(
+            BINARY_EXPR,
+            INTEGER_LITERAL,
+            VAR_REF_EXPR,
+            ARRAY_ACCESS_EXPR,
+            BOOLEAN_LITERAL,
+            NEW_EXPR,
+            NEW_ARRAY_EXPR,
+            ARRAY_EXPR,
+            FUNC_EXPR
+    );
 
     private final String name;
 

@@ -1,5 +1,6 @@
 package pt.up.fe.comp2024.analysis.passes;
 
+import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
@@ -9,6 +10,8 @@ import pt.up.fe.comp2024.analysis.AnalysisVisitor;
 import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.NodeUtils;
 import pt.up.fe.comp2024.ast.TypeUtils;
+
+import java.util.List;
 
 /**
  * A visitor that checks for type errors in the AST.
@@ -30,10 +33,13 @@ public class TypeError extends AnalysisVisitor {
         addVisit(Kind.IF_ELSE_STMT, this::visitIfElseStmt);
         addVisit(Kind.WHILE_STMT, this::visitWhileStmt);
         addVisit(Kind.RETURN_STMT, this::visitReturnStmt);
+        addVisit(Kind.FUNC_EXPR, this::visitFuncExpr);
     }
 
     /**
-     * Visits a method declaration node and sets the current method name.
+     * Visits a method declaration node and sets the current method.
+     * Also checks if the vararg parameter is the last parameter in the method declaration.
+     * If it is not, an error report is added.
      *
      * @param method The method declaration node to visit.
      * @param table The symbol table.
@@ -41,6 +47,23 @@ public class TypeError extends AnalysisVisitor {
      */
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         currentMethod = method;
+        System.out.println(method.toTree());
+
+        var arguments = method.getChildren().get(1).getChildren();
+        for (var i = 0; i < arguments.size() - 1; i++) {
+            var argType = TypeUtils.getExprType(arguments.get(i), table);
+
+            if (argType.isArray()) {
+                var message = "Vararg parameter must be last in a method declaration.";
+                addReport(Report.newError(
+                        Stage.SEMANTIC,
+                        NodeUtils.getLine(arguments.get(i)),
+                        NodeUtils.getColumn(arguments.get(i)),
+                        message,
+                        null)
+                );
+            }
+        }
 
         return null;
     }
@@ -174,6 +197,7 @@ public class TypeError extends AnalysisVisitor {
             return null;
         }
 
+        // Check if both sides are arrays, and if so, check if the array elements are of the correct type
         if (leftType.isArray() && rightType.isArray()) {
             if (Kind.ARRAY_EXPR.check(right)) {
                 for (var child : right.getChildren()) {
@@ -291,6 +315,78 @@ public class TypeError extends AnalysisVisitor {
                     message,
                     null)
             );
+        }
+
+        return null;
+    }
+
+    /**
+     * Visits a function expression node and checks if the arguments are compatible with the method parameters.
+     * If they are not, an error report is added.
+     *
+     * @param funcExpr The function expression node to visit.
+     * @param table The symbol table.
+     * @return null
+     */
+    public Void visitFuncExpr(JmmNode funcExpr, SymbolTable table) {
+        var methodName = funcExpr.get("methodname");
+        var callArgs = funcExpr.getChildren().subList(1, funcExpr.getNumChildren());
+
+        List<Symbol> params;
+        if (table.getMethods().contains(methodName)) {
+            params = table.getParameters(methodName);
+        }
+        else {
+            return null;
+        }
+
+        // Check if last parameter is vararg
+        // If it is, the number of arguments must be at least the number of parameters minus 1
+        if (params.get(params.size() - 1).getType().isArray()) {
+            if (params.size() > callArgs.size()) {
+                var message = "Method '" + methodName + "' expects at least " + (params.size() - 1) + " arguments, but " + callArgs.size() + " were provided.";
+                addReport(Report.newError(
+                        Stage.SEMANTIC,
+                        NodeUtils.getLine(funcExpr),
+                        NodeUtils.getColumn(funcExpr),
+                        message,
+                        null)
+                );
+            }
+
+            return null;
+        }
+
+        // Check if the number of arguments is correct
+        if (params.size() != callArgs.size()) {
+            var message = "Method '" + methodName + "' expects " + params.size() + " arguments, but " + callArgs.size() + " were provided.";
+            addReport(Report.newError(
+                    Stage.SEMANTIC,
+                    NodeUtils.getLine(funcExpr),
+                    NodeUtils.getColumn(funcExpr),
+                    message,
+                    null)
+            );
+            return null;
+        }
+
+        // Check if the arguments are of the correct type
+        for (var i = 0; i < params.size(); i++) {
+            var param = params.get(i);
+
+            var paramType = param.getType();
+            var argType = TypeUtils.getExprType(callArgs.get(i), table);
+
+            if (!TypeUtils.areTypesAssignable(paramType, argType)) {
+                var message = "Argument " + (i + 1) + " of method '" + methodName + "' must be of type '" + paramType.getName() + "'. Found: " + argType.getName() + ".";
+                addReport(Report.newError(
+                        Stage.SEMANTIC,
+                        NodeUtils.getLine(callArgs.get(i)),
+                        NodeUtils.getColumn(callArgs.get(i)),
+                        message,
+                        null)
+                );
+            }
         }
 
         return null;
