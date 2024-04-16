@@ -19,6 +19,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     private static final String SPACE = " ";
     private static final String ASSIGN = ":=";
+    private static final String TAB = "    ";
     private final String END_STMT = ";\n";
     private final String NL = "\n";
     private final String L_BRACKET = " {\n";
@@ -183,65 +184,44 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
 
     private String visitParam(JmmNode node, Void unused) {
-
-        StringBuilder code = new StringBuilder();
-
-        // Add variable name
-        String variableName = node.get("name");
-        code.append(variableName);
-
-        // Add type
-        var typeCode = node.getChild(0).get("name");
-        //System.out.println(typeCode);
-        //System.out.println(node.getChild(0));
-
-        switch (typeCode) {
-            case "int" -> code.append(".i32");
-            case "boolean" -> code.append(".bool");
-        }
-
-        if (typeCode.equals("String") && node.getChild(0).get("isArray").equals("false"))
-            code.append("String");
-        else if (typeCode.equals("String") && node.getChild(0).get("isArray").equals("true"))
-            code.append(".array.String");
-
-        return code.toString();
+        var x = 1;
+        var name = node.get("name");
+        return node.get("name") + toOllirType(node.getJmmChild(0));
     }
 
 
     private String visitMethodDecl(JmmNode node, Void unused) {
-
         StringBuilder code = new StringBuilder(".method ");
 
-        boolean isPublic = NodeUtils.getBooleanAttribute(node, "isPublic", "false");
-
-        if (isPublic) {
+        // add modifiers
+        if (node.get("isPublic").equals("true")){
             code.append("public ");
         }
+        if (node.get("isStatic").equals("true")){
+            code.append("static ");
+        }
 
-        // name
-        var name = node.get("name");
-        code.append(name);
+        // add name
+        code.append(node.get("name"));
 
-        // param
-        var paramCode = visit(node.getJmmChild(1));
-        code.append("(" + paramCode + ")");
+        var params = node.getChild(1).getChildren().stream()
+                .map(child -> visitParam(child, null))
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("");
 
-        // type
-        var retType = toOllirType(node.getJmmChild(0));
-        code.append(retType);
-        code.append(L_BRACKET);
+        code.append("(").append(params).append(")");
+        code.append(toOllirType(node.getJmmChild(0))).append(L_BRACKET);
 
 
         // rest of its children stmts
         var afterParam = 2;
         for (int i = afterParam; i < node.getNumChildren(); i++) {
             var child = node.getJmmChild(i);
-            var childCode = visit(child);
+            var childCode = TAB + TAB + visit(child);
             code.append(childCode);
         }
 
-        code.append(R_BRACKET);
+        code.append(TAB).append(R_BRACKET);
         code.append(NL);
 
 
@@ -250,54 +230,43 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
 
     private String visitClass(JmmNode node, Void unused) {
-
         StringBuilder code = new StringBuilder();
 
+        // class name
         code.append(table.getClassName());
 
-        //System.out.println(table.getSuper());
-        if (table.getSuper() != null && !table.getSuper().isEmpty())
-            code.append(" extends ").append(table.getSuper());
-        else
-            code.append(" extends Object ").append(table.getSuper());
-        code.append(L_BRACKET);
 
-        code.append(NL);
+        // extends super or defaults to Object
+        var superClass = table.getSuper() == null ? "Object" : table.getSuper();
+        code.append(" extends ").append(superClass).append(L_BRACKET).append(NL);
 
-        boolean isPublic = NodeUtils.getBooleanAttribute(node, "isPublic", "false");
-        if (table.getFields() != null && !table.getFields().isEmpty())
-            for(int i =  0; i < table.getFields().size(); i++) {
-                if (isPublic)
-                    code.append(".field public ").append(table.getFields().get(i).getName()).append(toOllirType(table.getFields().get(i).getType())).append(";");
-                else
-                    code.append(".field ").append(table.getFields().get(i).getName()).append(toOllirType(table.getFields().get(i).getType())).append(";");
-                code.append(NL);
-            }
-
-        var needNl = true;
-
-        for (var child : node.getChildren()) {
-            var result = visit(child);
-
-            if (METHOD_DECL.check(child) && needNl) {
-                code.append(NL);
-                needNl = false;
-            }
-
-            code.append(result);
+        // init fields as public
+        for (var field : table.getFields()) {
+            String fieldDeclaration = TAB + ".field public ";
+            fieldDeclaration += field.getName() + toOllirType(field.getType()) + ";";
+            code.append(fieldDeclaration).append(NL);
         }
 
-        code.append(buildConstructor());
+        // constructor
+        code.append(NL).append(buildConstructor()).append(NL);
+
+        // instantiate methods
+        for (var method : node.getChildren()) {
+            if (method.getKind().equals("Method")) {
+                code.append(TAB).append(visit(method));
+            }
+        }
+
         code.append(R_BRACKET);
 
         return code.toString();
     }
 
     private String buildConstructor() {
-
-        return ".construct " + table.getClassName() + "().V {\n" +
-                "invokespecial(this, \"\").V;\n" +
-                "}\n";
+        return TAB + ".construct " + table.getClassName() +
+                "().V" + L_BRACKET + TAB + TAB +
+                "invokespecial(this, \"<init>\").V;" + NL +
+                TAB + R_BRACKET;
     }
 
 
