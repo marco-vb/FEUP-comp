@@ -23,6 +23,4 @@ public class NodeUtils {
         String line = node.getOptional(attribute).orElse(defaultVal);
         return Boolean.parseBoolean(line);
     }
-
-
 }
