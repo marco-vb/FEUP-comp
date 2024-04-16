@@ -9,6 +9,8 @@ import pt.up.fe.comp2024.ast.TypeUtils;
 
 import javax.xml.namespace.QName;
 
+import java.util.Objects;
+
 import static pt.up.fe.comp2024.ast.Kind.*;
 import static pt.up.fe.comp2024.optimization.OptUtils.toOllirType;
 
@@ -124,13 +126,13 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private String visitAssignStmt(JmmNode node, Void unused) {
 
         var lhs = exprVisitor.visit(node.getJmmChild(0));
-        var rhs = exprVisitor.visit(node.getJmmChild(1));
+//        var rhs = exprVisitor.visit(node.getJmmChild(1));
 
         StringBuilder code = new StringBuilder();
 
         // code to compute the children
         code.append(lhs.getComputation());
-        code.append(rhs.getComputation());
+//        code.append(rhs.getComputation());
 
         // code to compute self
         // statement has type of lhs
@@ -145,7 +147,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         code.append(typeString);
         code.append(SPACE);
 
-        code.append(rhs.getCode());
+//        code.append(rhs.getCode());
 
         code.append(END_STMT);
 
@@ -184,8 +186,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
 
     private String visitParam(JmmNode node, Void unused) {
-        var x = 1;
-        var name = node.get("name");
         return node.get("name") + toOllirType(node.getJmmChild(0));
     }
 
@@ -237,7 +237,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
 
         // extends super or defaults to Object
-        var superClass = table.getSuper() == null ? "Object" : table.getSuper();
+        var superClass = table.getSuper().isEmpty() ? "Object" : table.getSuper();
         code.append(" extends ").append(superClass).append(L_BRACKET).append(NL);
 
         // init fields as public
