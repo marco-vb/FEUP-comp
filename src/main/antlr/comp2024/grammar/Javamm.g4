@@ -67,9 +67,13 @@ arg
     : typename=type name=ID             #Argument
     ;
 
+id
+    : name=ID                           #Identifier
+    ;
+
 stmt
-    : ID '=' expr ';'                   #AssignStmt
-    | ID '[' expr ']' '=' expr ';'      #ArrayAssignStmt
+    : id '=' expr ';'                   #AssignStmt
+    | id '[' expr ']' '=' expr ';'      #ArrayAssignStmt
     | IF '(' expr ')' stmt ELSE stmt    #IfElseStmt
     | WHILE '(' expr ')' stmt           #WhileStmt
     | '{' stmt* '}'                     #ScopeStmt
@@ -86,20 +90,20 @@ expr
     | '!' expr                          #UnaryExpr
     | expr op=('*' | '/') expr          #BinaryExpr
     | expr op=('+' | '-') expr          #BinaryExpr
-    | expr ('<=' | '<' | '>' | '>=')
+    | expr op=('<=' | '<' | '>' | '>=')
       expr                              #BinaryExpr
-    | expr ('==') expr                  #BinaryExpr
-    | expr ('||' | '&&') expr           #BinaryExpr
-    | expr '.' ID                       #FuncExpr
-    | expr '.' ID
+    | expr op='==' expr                 #BinaryExpr
+    | expr op=('||' | '&&') expr        #BinaryExpr
+    | expr '.' methodname=ID            #FuncExpr
+    | expr '.' methodname=ID
       '(' (expr (',' expr)* )? ')'      #FuncExpr
     | expr ('.' expr)+                  #MemberExpr
     | value=INTEGER                     #IntegerLiteral
     | value=('true' | 'false')          #BooleanLiteral
     | name=ID                           #VarRefExpr
-    | expr ('[' expr ']')+              #VarRefExpr
+    | expr ('[' expr ']')+              #ArrayAccessExpr
     | '[' (expr (',' expr)*)? ']'       #ArrayExpr
-    | NEW ID '(' ')'                    #NewExpr
+    | NEW classname=ID '(' ')'          #NewExpr
     | NEW INT '[' expr ']'              #NewArrayExpr
     | THIS                              #ThisExpr
     ;
