@@ -8,22 +8,43 @@ import pt.up.fe.comp.jmm.parser.JmmParserResult;
 import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2024.analysis.passes.UndeclaredVariable;
+import pt.up.fe.comp2024.analysis.passes.TypeError;
+import pt.up.fe.comp2024.analysis.passes.InvalidArrayAccess;
+import pt.up.fe.comp2024.analysis.passes.UndefinedMethod;
+import pt.up.fe.comp2024.analysis.passes.ThisInStaticMethod;
 import pt.up.fe.comp2024.symboltable.JmmSymbolTableBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * The implementation of the JmmAnalysis interface.
+ */
 public class JmmAnalysisImpl implements JmmAnalysis {
-
 
     private final List<AnalysisPass> analysisPasses;
 
+    /**
+     * Create a new instance of the JmmAnalysisImpl class.
+     */
     public JmmAnalysisImpl() {
 
-        this.analysisPasses = List.of(new UndeclaredVariable());
+        this.analysisPasses = new ArrayList<>();
 
+        // Add all analysis passes
+        analysisPasses.add(new UndeclaredVariable());
+        analysisPasses.add(new TypeError());
+        analysisPasses.add(new InvalidArrayAccess());
+        analysisPasses.add(new UndefinedMethod());
+        analysisPasses.add(new ThisInStaticMethod());
     }
 
+    /**
+     * Perform the semantic analysis of the program.
+     *
+     * @param parserResult The result of the parsing phase.
+     * @return The result of the semantic analysis.
+     */
     @Override
     public JmmSemanticsResult semanticAnalysis(JmmParserResult parserResult) {
 

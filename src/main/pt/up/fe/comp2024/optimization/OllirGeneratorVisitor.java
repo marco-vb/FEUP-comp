@@ -65,7 +65,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         String name = node.get("name");
         //String type = toOllirType(this.table.getLocalVariables(name).get(0).getType());
         code.append(name);
-    //.append(type);
+        //.append(type);
         return code.toString();
     }
 
