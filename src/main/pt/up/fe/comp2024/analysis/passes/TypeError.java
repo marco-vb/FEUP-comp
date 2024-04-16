@@ -47,7 +47,6 @@ public class TypeError extends AnalysisVisitor {
      */
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         currentMethod = method;
-        System.out.println(method.toTree());
 
         var arguments = method.getChildren().get(1).getChildren();
         for (var i = 0; i < arguments.size() - 1; i++) {
@@ -81,8 +80,8 @@ public class TypeError extends AnalysisVisitor {
 
         var indexType = TypeUtils.getExprType(index, table);
 
-        if (!indexType.getName().equals(TypeUtils.getIntTypeName())) {
-            var message = "Array index must be an integer expression. Found: " + indexType.getName() + ".";
+        if (!TypeUtils.areTypesAssignable(indexType, TypeUtils.getIntType(), table)) {
+            var message = "Array index must be an integer expression. Found: " + TypeUtils.getTypeName(indexType) + ".";
             addReport(Report.newError(
                     Stage.SEMANTIC,
                     NodeUtils.getLine(arrayAccessExpr),
@@ -120,16 +119,18 @@ public class TypeError extends AnalysisVisitor {
                     message,
                     null)
             );
+
+            return null;
         }
 
         var operator = binaryExpr.get("op");
 
-        var leftTypeName = leftType.getName();
-        var rightTypeName = rightType.getName();
+        var leftTypeName = TypeUtils.getTypeName(leftType);
+        var rightTypeName = TypeUtils.getTypeName(rightType);
 
         switch(operator) {
             case "+", "-", "*", "/" -> {
-                if (!leftTypeName.equals(TypeUtils.getIntTypeName()) || !rightTypeName.equals(TypeUtils.getIntTypeName())) {
+                if (!TypeUtils.areTypesAssignable(leftType, TypeUtils.getIntType(), table) || !TypeUtils.areTypesAssignable(rightType, TypeUtils.getIntType(), table)) {
                     var message = "Binary operator '" + operator + "' requires both operands to be of type 'int'. Found: " + leftTypeName + " and " + rightTypeName + ".";
                     addReport(Report.newError(
                             Stage.SEMANTIC,
@@ -141,7 +142,7 @@ public class TypeError extends AnalysisVisitor {
                 }
             }
             case "<", "<=", ">", ">=", "==", "!=" -> {
-                if (!leftTypeName.equals(rightTypeName)) {
+                if (!TypeUtils.areTypesAssignable(leftType, rightType, table)) {
                     var message = "Binary operator '" + operator + "' requires both operands to be of the same type. Found: " + leftTypeName + " and " + rightTypeName + ".";
                     addReport(Report.newError(
                             Stage.SEMANTIC,
@@ -153,7 +154,7 @@ public class TypeError extends AnalysisVisitor {
                 }
             }
             case "&&", "||" -> {
-                if (!leftTypeName.equals(TypeUtils.getBooleanTypeName()) || !rightTypeName.equals(TypeUtils.getBooleanTypeName())) {
+                if (!TypeUtils.areTypesAssignable(leftType, TypeUtils.getBooleanType(), table) || !TypeUtils.areTypesAssignable(rightType, TypeUtils.getBooleanType(), table)) {
                     var message = "Binary operator '" + operator + "' requires both operands to be of type 'bool'. Found: " + leftTypeName + " and " + rightTypeName + ".";
                     addReport(Report.newError(
                             Stage.SEMANTIC,
@@ -184,8 +185,8 @@ public class TypeError extends AnalysisVisitor {
         var leftType = TypeUtils.getExprType(left, table);
         var rightType = TypeUtils.getExprType(right, table);
 
-        if (!TypeUtils.areTypesAssignable(leftType, rightType)) {
-            var message = "Cannot assign a value of type '" + rightType.getName() + "' to a variable of type '" + leftType.getName() + "'.";
+        if (!TypeUtils.areTypesAssignable(rightType, leftType, table)) {
+            var message = "Cannot assign a value of type '" + TypeUtils.getTypeName(rightType) + "' to a variable of type '" + TypeUtils.getTypeName(leftType) + "'.";
             addReport(Report.newError(
                     Stage.SEMANTIC,
                     NodeUtils.getLine(assignStmt),
@@ -204,8 +205,8 @@ public class TypeError extends AnalysisVisitor {
                     var childType = TypeUtils.getExprType(child, table);
 
                     var arrayElementType = new Type(leftType.getName(), false);
-                    if (!TypeUtils.areTypesAssignable(arrayElementType, childType)) {
-                        var message = "Array elements must be of type '" + arrayElementType.getName() + "'. Found: " + childType.getName() + ".";
+                    if (!TypeUtils.areTypesAssignable(arrayElementType, childType, table)) {
+                        var message = "Array elements must be of type '" + TypeUtils.getTypeName(arrayElementType) + "'. Found: " + TypeUtils.getTypeName(childType) + ".";
                         addReport(Report.newError(
                                 Stage.SEMANTIC,
                                 NodeUtils.getLine(assignStmt),
@@ -235,8 +236,8 @@ public class TypeError extends AnalysisVisitor {
 
         var conditionType = TypeUtils.getExprType(condition, table);
 
-        if (!conditionType.getName().equals(TypeUtils.getBooleanTypeName())) {
-            var message = "If condition must be a boolean expression. Found: " + conditionType.getName() + ".";
+        if (!TypeUtils.areTypesAssignable(conditionType, TypeUtils.getBooleanType(), table)) {
+            var message = "If condition must be a boolean expression. Found: " + TypeUtils.getTypeName(conditionType) + ".";
             addReport(Report.newError(
                     Stage.SEMANTIC,
                     NodeUtils.getLine(ifStmt),
@@ -262,8 +263,8 @@ public class TypeError extends AnalysisVisitor {
 
         var conditionType = TypeUtils.getExprType(condition, table);
 
-        if (!conditionType.getName().equals(TypeUtils.getBooleanTypeName())) {
-            var message = "While condition must be a boolean expression. Found: " + conditionType.getName() + ".";
+        if (!TypeUtils.areTypesAssignable(conditionType, TypeUtils.getBooleanType(), table)) {
+            var message = "While condition must be a boolean expression. Found: " + TypeUtils.getTypeName(conditionType) + ".";
             addReport(Report.newError(
                     Stage.SEMANTIC,
                     NodeUtils.getLine(whileStmt),
@@ -288,7 +289,7 @@ public class TypeError extends AnalysisVisitor {
         var methodReturnType = table.getReturnType(currentMethod.get("name"));
 
         // Check if the method returns 'void', in which case it should not return any value
-        if (methodReturnType.getName().equals(TypeUtils.getVoidTypeName())) {
+        if (TypeUtils.areTypesAssignable(methodReturnType, TypeUtils.getVoidType(), table)) {
             if (returnStmt.getNumChildren() > 0) {
                 var message = "Cannot return a value from a method that returns 'void'.";
                 addReport(Report.newError(
@@ -306,8 +307,8 @@ public class TypeError extends AnalysisVisitor {
         var returnValue = returnStmt.getChildren().get(0);
         var returnType = TypeUtils.getExprType(returnValue, table);
 
-        if (!TypeUtils.areTypesAssignable(methodReturnType, returnType)) {
-            var message = "Cannot return a value of type '" + returnType.getName() + "' from a method that returns '" + methodReturnType.getName() + "'.";
+        if (!TypeUtils.areTypesAssignable(methodReturnType, returnType, table)) {
+            var message = "Cannot return a value of type '" + TypeUtils.getTypeName(returnType) + "' from a method that returns '" + TypeUtils.getTypeName(methodReturnType) + "'.";
             addReport(Report.newError(
                     Stage.SEMANTIC,
                     NodeUtils.getLine(returnStmt),
@@ -377,8 +378,8 @@ public class TypeError extends AnalysisVisitor {
             var paramType = param.getType();
             var argType = TypeUtils.getExprType(callArgs.get(i), table);
 
-            if (!TypeUtils.areTypesAssignable(paramType, argType)) {
-                var message = "Argument " + (i + 1) + " of method '" + methodName + "' must be of type '" + paramType.getName() + "'. Found: " + argType.getName() + ".";
+            if (!TypeUtils.areTypesAssignable(paramType, argType, table)) {
+                var message = "Argument " + (i + 1) + " of method '" + methodName + "' must be of type '" + TypeUtils.getTypeName(paramType) + "'. Found: " + argType.getName() + ".";
                 addReport(Report.newError(
                         Stage.SEMANTIC,
                         NodeUtils.getLine(callArgs.get(i)),

@@ -41,6 +41,42 @@ public class TypeUtils {
     }
 
     /**
+     * Gets the type of the int type.
+     *
+     * @return The type of the int type.
+     */
+    public static Type getIntType() {
+        return new Type(INT_TYPE_NAME, false);
+    }
+
+    /**
+     * Gets the type of the boolean type.
+     *
+     * @return The type of the boolean type.
+     */
+    public static Type getBooleanType() {
+        return new Type(BOOLEAN_TYPE_NAME, false);
+    }
+
+    /**
+     * Gets the type of the void type.
+     *
+     * @return The type of the void type.
+     */
+    public static Type getVoidType() {
+        return new Type(VOID_TYPE_NAME, false);
+    }
+
+    /**
+     * Gets the type of an array type.
+     *
+     * @return The type of the array type.
+     */
+    public static Type getArrayType() {
+        return new Type(INT_TYPE_NAME, true);
+    }
+
+    /**
      * Gets the type of an expression.
      *
      * @param expr  The expression node.
@@ -57,8 +93,8 @@ public class TypeUtils {
             case ARGUMENT -> getArgumentType(expr, table);
             case NEW_EXPR -> getNewExprType(expr);
             case ARRAY_EXPR, NEW_ARRAY_EXPR -> new Type(INT_TYPE_NAME, true);   // Array expressions are always of type int[]
-            case INTEGER_LITERAL, ARRAY_ACCESS_EXPR -> new Type(INT_TYPE_NAME, false);
-            case BOOLEAN_LITERAL -> new Type(BOOLEAN_TYPE_NAME, false);
+            case INTEGER_LITERAL, ARRAY_ACCESS_EXPR -> getIntType();
+            case BOOLEAN_LITERAL -> getBooleanType();
             default -> throw new UnsupportedOperationException("Can't compute type for expression kind '" + kind + "'");
         };
     }
@@ -176,7 +212,33 @@ public class TypeUtils {
      * @param destinationType The type of the destination expression.
      * @return true if the source type can be assigned to the destination type, false otherwise.
      */
-    public static boolean areTypesAssignable(Type sourceType, Type destinationType) {
+    public static boolean areTypesAssignable(Type sourceType, Type destinationType, SymbolTable table) {
+        var sourceTypeName = sourceType.getName();
+        var destinationTypeName = destinationType.getName();
+
+        if (sourceTypeName.equals("any") || destinationTypeName.equals("any")) {
+            return true;
+        }
+
+        if (sourceTypeName.equals(table.getClassName()) && destinationTypeName.equals(table.getSuper())) {
+            return true;
+        }
+
+        var imports = table.getImports();
+        if (imports.contains(sourceTypeName) && imports.contains(destinationTypeName)) {
+            return true;
+        }
+
         return sourceType.equals(destinationType) || sourceType.getName().equals("any") || destinationType.getName().equals("any");
+    }
+
+    /**
+     * Gets the name of a type.
+     *
+     * @param type The type.
+     * @return The name of the type.
+     */
+    public static String getTypeName(Type type) {
+        return type.getName() + (type.isArray() ? "[]" : "");
     }
 }

@@ -7,6 +7,7 @@ import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2024.analysis.AnalysisVisitor;
 import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.NodeUtils;
+import pt.up.fe.comp2024.ast.TypeUtils;
 
 /**
  * A pass that checks for invalid array accesses.
@@ -47,31 +48,11 @@ public class InvalidArrayAccess extends AnalysisVisitor {
      * @return null
      * */
     private Void visitArrayAccessExpr(JmmNode arrayAccessExpr, SymbolTable table) {
-        var array = arrayAccessExpr.getChildren().get(0);
-        var index = Integer.parseInt(arrayAccessExpr.getChildren().get(1).get("value"));
+        var exprType = TypeUtils.getExprType(arrayAccessExpr.getChild(0), table);
+        var arrayType = TypeUtils.getArrayType();
 
-        // Get all the assign statements in the current method
-        var assignStmts = currentMethod.getChildren(Kind.ASSIGN_STMT);
-
-        // Determine the length of the array, if it is initialized
-        var arrayLength = 0;
-        for (var assignStmt : assignStmts) {
-            var identifier = assignStmt.getChildren(Kind.IDENTIFIER).get(0);
-
-            if (identifier.get("name").equals(array.get("name"))) {
-                var arrayExpr = assignStmt.getChildren().get(1);
-
-                if (Kind.ARRAY_EXPR.check(arrayExpr)) {
-
-                    // Length of the array is the number of elements in the array expression
-                    arrayLength = arrayExpr.getChildren().size();
-                }
-            }
-        }
-
-        // Check if the index is out of bounds
-        if (index > arrayLength) {
-            var message = "Array index out of bounds: tried to access index " + index + " in an array of length " + arrayLength + ".";
+        if (!TypeUtils.areTypesAssignable(exprType, arrayType, table)) {
+            var message = "Array access must be done over an array.";
             addReport(Report.newError(
                     Stage.SEMANTIC,
                     NodeUtils.getLine(arrayAccessExpr),
