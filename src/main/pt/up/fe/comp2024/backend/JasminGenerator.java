@@ -89,7 +89,7 @@ public class JasminGenerator {
         // generate super class
         var superClass = ollirResult.getOllirClass().getSuperClass();
 
-        if (Objects.equals(superClass, "Object")) {
+        if (superClass == null || superClass.equals("Object")) {
             superClass = "java/lang/Object";
         }
 
