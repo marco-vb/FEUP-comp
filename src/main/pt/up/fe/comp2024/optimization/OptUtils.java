@@ -57,5 +57,7 @@ public class OptUtils {
         return type;
     }
 
-
+    public static boolean notEmptyWS(String str) {
+        return str != null && !str.isBlank();
+    }
 }
