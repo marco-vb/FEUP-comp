@@ -10,6 +10,7 @@ import pt.up.fe.comp2024.ast.TypeUtils;
 
 import javax.xml.namespace.QName;
 
+import java.security.spec.EdDSAParameterSpec;
 import java.util.Objects;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
@@ -104,7 +105,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         for (var i = 1; i < node.getNumChildren(); i++) {
             if (i == 1) code.append(", ");
-            code.append(visit(node.getChild(i)));
+            var expr = exprVisitor.visit(node.getChild(i)).getCode();
+            code.append(expr);
         }
 
         code.append(")");
@@ -116,6 +118,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         } else {
             code.append(".V");
         }
+
         return code.toString();
     }
     private String visitScopeStmt(JmmNode node, Void unused) {
@@ -156,9 +159,12 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         String typeString = toOllirType(thisType);
 
 
+        code.append(lhs.getComputation()).append(TAB + TAB);
+        code.append(rhs.getComputation()).append(TAB + TAB);
         code.append(lhs.getCode()).append(SPACE);
         code.append(ASSIGN).append(typeString).append(SPACE);
         code.append(rhs.getCode());
+
 
         return code.toString();
     }
@@ -256,8 +262,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         // init fields as public
         for (var field : table.getFields()) {
             String fieldDeclaration = TAB + ".field public ";
-            fieldDeclaration += field.getName() + toOllirType(field.getType()) + ";";
-            code.append(fieldDeclaration).append(NL);
+            fieldDeclaration += field.getName() + toOllirType(field.getType()) + END_STMT;
+            code.append(fieldDeclaration);
         }
 
         // constructor

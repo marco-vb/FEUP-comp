@@ -34,22 +34,32 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         addVisit(BINARY_EXPR, this::visitBinExpr);
         addVisit(INTEGER_LITERAL, this::visitInteger);
         addVisit(FUNC_EXPR, this::visitFuncExpr);
+        addVisit(NEW_EXPR, this::visitNewExpr);
 
         setDefaultVisit(this::defaultVisit);
     }
 
+    private OllirExprResult visitNewExpr(JmmNode jmmNode, Void unused) {
+        StringBuilder code = new StringBuilder();
+        var type = jmmNode.get("classname");
+        code.append("new (").append(type).append(").").append(type);
+        return new OllirExprResult(code.toString());
+    }
+
     private OllirExprResult visitFuncExpr(JmmNode node, Void unused) {
         StringBuilder code = new StringBuilder();
-        code.append(getInvokeType(node, table)).append("(");
-
+        var invoke = getInvokeType(node, table);
+        code.append(invoke).append("(");
 
         var type = node.getChild(0).get("name");
         code.append(type).append(", \"");
         code.append(node.get("methodname")).append("\"");
 
-        for (var i = 1; i < node.getNumChildren(); i++) {
-            if (i == 1) code.append(", ");
-            code.append(visit(node.getChild(i)));
+        var n = node.getNumChildren();
+        for (var i = 1; i < n; i++) {
+            code.append(", ");
+            var expr = visit(node.getChild(i)).getCode();
+            code.append(expr);
         }
 
         code.append(")");
@@ -58,11 +68,12 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         if (parent.isInstance(ASSIGN_STMT)) {
             var returnType = getExprType(parent.getJmmChild(0), table);
             code.append(toOllirType(returnType));
+        } else if (parent.isInstance(BINARY_EXPR)) {
+            var returnType = getExprType(parent, table);
+            code.append(toOllirType(returnType));
         } else {
-            code.append("V");
+            code.append(".V");
         }
-
-        code.append(END_STMT);
 
         return new OllirExprResult(code.toString());
     }

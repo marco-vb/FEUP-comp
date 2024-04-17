@@ -252,6 +252,8 @@ public class TypeUtils {
             return "variable";
         } else if (locals.stream().anyMatch(l -> l.getName().equals(name))) {
             return "variable";
+        } else if (name.equals("this")) {
+            return "variable";
         }
         return "class";
     }
