@@ -27,6 +27,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
     @Override
     protected void buildVisitor() {
         addVisit(VAR_REF_EXPR, this::visitVarRef);
+        addVisit(IDENTIFIER, this::visitVarRef);
         addVisit(BINARY_EXPR, this::visitBinExpr);
         addVisit(INTEGER_LITERAL, this::visitInteger);
 
