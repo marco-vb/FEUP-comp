@@ -31,12 +31,12 @@ public class OptUtils {
     }
 
     public static String toOllirType(JmmNode typeNode) {
-
         TYPE.checkOrThrow(typeNode);
-
-        String typeName = typeNode.get("name");
-
-        return toOllirType(typeName);
+        String typeName = toOllirType(typeNode.get("name"));
+        if (typeNode.get("isArray").equals("true")) {
+            typeName = ".array" + typeName;
+        }
+        return typeName;
     }
 
     public static String toOllirType(Type type) {
@@ -50,11 +50,14 @@ public class OptUtils {
             case "boolean" -> "bool";
             case "String" -> "String";
             case "void" -> "V";
-            default -> throw new NotImplementedException(typeName);
+            default -> typeName;
         };
 
+        // imported type
         return type;
     }
 
-
+    public static boolean notEmptyWS(String str) {
+        return str != null && !str.isBlank();
+    }
 }
