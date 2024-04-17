@@ -365,7 +365,6 @@ public class JasminGenerator {
         var caller = instruction.getCaller().toString();
         var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
         code.append("new ").append(name).append(NL);
-        code.append("dup").append(NL);
 
         return code.toString();
     }
@@ -499,8 +498,8 @@ public class JasminGenerator {
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
         return switch (operand.getType().getTypeOfElement()) {
-            case INT32, BOOLEAN -> "iload_" + reg + NL;
-            case STRING, ARRAYREF, OBJECTREF, THIS -> "aload_" + reg + NL;
+            case INT32, BOOLEAN -> "iload " + reg + NL;
+            case STRING, ARRAYREF, OBJECTREF, THIS -> "aload " + reg + NL;
             default -> throw new NotImplementedException(operand.getType().getTypeOfElement());
         };
     }
@@ -509,8 +508,8 @@ public class JasminGenerator {
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
         return switch (operand.getType().getTypeOfElement()) {
-            case INT32, BOOLEAN -> "istore_" + reg + NL;
-            case STRING, ARRAYREF, OBJECTREF -> "astore_" + reg + NL;
+            case INT32, BOOLEAN -> "istore " + reg + NL;
+            case STRING, ARRAYREF, OBJECTREF -> "astore " + reg + NL;
             default -> throw new NotImplementedException(operand.getType().getTypeOfElement());
         };
     }
