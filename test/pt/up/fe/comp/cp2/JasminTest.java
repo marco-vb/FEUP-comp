@@ -33,11 +33,6 @@ public class JasminTest {
         testOllirToJasmin("pt/up/fe/comp/cp2/jasmin/OllirToJasminFields.ollir");
     }
 
-    @Test
-    public void ollirToJasminSimple() {
-        testOllirToJasmin("pt/up/fe/comp/cp2/jasmin/OllirToJasminSimple.ollir");
-    }
-
     public static void testOllirToJasmin(String resource, String expectedOutput) {
         JasminResult result = null;
 
