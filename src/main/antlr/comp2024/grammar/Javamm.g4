@@ -88,12 +88,6 @@ varDecl
 expr
     : '(' expr ')'                      #ParenExpr
     | '!' expr                          #UnaryExpr
-    | expr op=('*' | '/') expr          #BinaryExpr
-    | expr op=('+' | '-') expr          #BinaryExpr
-    | expr op=('<=' | '<' | '>' | '>=')
-      expr                              #BinaryExpr
-    | expr op='==' expr                 #BinaryExpr
-    | expr op=('||' | '&&') expr        #BinaryExpr
     | expr '.' methodname=ID            #FuncExpr
     | expr '.' methodname=ID
       '(' (expr (',' expr)* )? ')'      #FuncExpr
@@ -106,4 +100,10 @@ expr
     | NEW classname=ID '(' ')'          #NewExpr
     | NEW INT '[' expr ']'              #NewArrayExpr
     | THIS                              #ThisExpr
+    | expr op=('*' | '/') expr          #BinaryExpr
+    | expr op=('+' | '-') expr          #BinaryExpr
+    | expr op=('<=' | '<' | '>' | '>=')
+      expr                              #BinaryExpr
+    | expr op='==' expr                 #BinaryExpr
+    | expr op=('||' | '&&') expr        #BinaryExpr
     ;

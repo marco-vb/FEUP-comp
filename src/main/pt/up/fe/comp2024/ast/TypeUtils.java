@@ -98,7 +98,7 @@ public class TypeUtils {
             case ARRAY_EXPR, NEW_ARRAY_EXPR -> new Type(INT_TYPE_NAME, true);   // Array expressions are always of type int[]
             case INTEGER_LITERAL, ARRAY_ACCESS_EXPR -> getIntType();
             case BOOLEAN_LITERAL -> getBooleanType();
-            case THIS -> new Type(table.getClassName(), false);
+            case THIS_EXPR -> new Type(table.getClassName(), false);
             default -> throw new UnsupportedOperationException("Can't compute type for expression kind '" + kind + "'");
         };
     }
@@ -159,9 +159,12 @@ public class TypeUtils {
             }
         }
 
-//        throw new RuntimeException("Variable '" + varName + "' not found in the symbol table");
-        // Is an imported class
-        return new Type(varName, false);
+        // Check if the variable is an imported class
+        if (table.getImports().contains(varName)) {
+            return new Type(varName, false);
+        }
+
+        return null;
     }
 
     /**

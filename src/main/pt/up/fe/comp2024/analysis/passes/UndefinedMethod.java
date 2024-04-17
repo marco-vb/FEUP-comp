@@ -48,7 +48,7 @@ public class UndefinedMethod extends AnalysisVisitor {
             return null;
         }
 
-        // Check if the class is imported
+        // Check if the method is defined in an imported class
         if (imports.contains(callerType.getName())) {
             return null;
         }
