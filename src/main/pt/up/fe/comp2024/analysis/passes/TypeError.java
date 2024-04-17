@@ -307,6 +307,10 @@ public class TypeError extends AnalysisVisitor {
         var returnValue = returnStmt.getChildren().get(0);
         var returnType = TypeUtils.getExprType(returnValue, table);
 
+        if (returnType == null) {
+            return null;
+        }
+
         if (!TypeUtils.areTypesAssignable(methodReturnType, returnType, table)) {
             var message = "Cannot return a value of type '" + TypeUtils.getTypeName(returnType) + "' from a method that returns '" + TypeUtils.getTypeName(methodReturnType) + "'.";
             addReport(Report.newError(
@@ -343,7 +347,7 @@ public class TypeError extends AnalysisVisitor {
 
         // Check if last parameter is vararg
         // If it is, the number of arguments must be at least the number of parameters minus 1
-        if (params.get(params.size() - 1).getType().isArray()) {
+        if (!params.isEmpty() && params.get(params.size() - 1).getType().isArray()) {
             if (params.size() > callArgs.size()) {
                 var message = "Method '" + methodName + "' expects at least " + (params.size() - 1) + " arguments, but " + callArgs.size() + " were provided.";
                 addReport(Report.newError(

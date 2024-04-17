@@ -17,7 +17,7 @@ public class ThisInStaticMethod extends AnalysisVisitor {
      */
     @Override
     public void buildVisitor() {
-        addVisit(Kind.THIS, this::visitThis);
+        addVisit(Kind.THIS_EXPR, this::visitThis);
     }
 
     /**
