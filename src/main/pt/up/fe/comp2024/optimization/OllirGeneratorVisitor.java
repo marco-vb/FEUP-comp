@@ -1,23 +1,14 @@
 package pt.up.fe.comp2024.optimization;
 
-import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.AJmmVisitor;
 import pt.up.fe.comp.jmm.ast.JmmNode;
-import pt.up.fe.comp2024.ast.NodeUtils;
-import pt.up.fe.comp2024.ast.TypeUtils;
 
-import javax.xml.namespace.QName;
-
-import java.security.spec.EdDSAParameterSpec;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
 import static pt.up.fe.comp2024.ast.TypeUtils.getExprType;
-import static pt.up.fe.comp2024.ast.TypeUtils.getInvokeType;
 import static pt.up.fe.comp2024.optimization.OptUtils.toOllirType;
 
 /**
@@ -182,7 +173,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         code.append(node.get("name"));
 
         var params = node.getChild(1).getChildren().stream()
-                .map(child -> visitParam(child, null))
+                .map(child -> generateMethodParam(child, null))
                 .reduce((a, b) -> a + ", " + b).orElse("");
 
         code.append("(").append(params).append(")");
@@ -229,10 +220,10 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
 
         if (OptUtils.notEmptyWS(lhs.getComputation())) {
-            code.append(indentation()).append(lhs.getComputation()).append(END_STMT);
+            code.append(lhs.getComputation()).append(END_STMT).append(indentation());
         }
         if (OptUtils.notEmptyWS(rhs.getComputation())) {
-            code.append(indentation()).append(rhs.getComputation()).append(END_STMT);
+            code.append(rhs.getComputation()).append(END_STMT).append(indentation());
         }
 
         code.append(lhs.getCode());
@@ -257,7 +248,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         var expr = exprVisitor.visit(node.getJmmChild(0));
 
         if (OptUtils.notEmptyWS(expr.getComputation())) {
-            code.append(indentation()).append(expr.getComputation()).append(END_STMT);
+            code.append(expr.getComputation()).append(END_STMT).append(indentation());
         }
 
         code.append("ret").append(toOllirType(retType)).append(" ").append(expr.getCode());
@@ -275,12 +266,17 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         StringBuilder code = new StringBuilder();
         var expr = exprVisitor.visit(node.getJmmChild(0));
 
-        // this check is probably not needed
-        if (OptUtils.notEmptyWS(expr.getComputation())) {
-            code.append(indentation()).append(expr.getComputation()).append(END_STMT);
-        }
-
         code.append(expr.getCode());
         return code.toString();
+    }
+
+    /**
+     * Generates a method parameter name + type.
+     * @param node
+     * @param unused
+     * @return
+     */
+    private String generateMethodParam(JmmNode node, Void unused) {
+        return node.get("name") + toOllirType(node.getJmmChild(0));
     }
 }
