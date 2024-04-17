@@ -110,8 +110,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         } else {
             code.append(".V");
         }
-
-        code.append(END_STMT);
         return code.toString();
     }
     private String visitScopeStmt(JmmNode node, Void unused) {
@@ -176,11 +174,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         code.append(expr.getComputation()).append(TAB + TAB);
         code.append("ret").append(toOllirType(retType));
         code.append(SPACE).append(expr.getCode());
-        code.append(END_STMT);
-
-        if (code.toString().isEmpty())
-            code.append("ret.V");
-
 
         return code.toString();
     }
@@ -218,8 +211,11 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         var afterParam = 2;
         for (int i = afterParam; i < node.getNumChildren(); i++) {
             var child = node.getJmmChild(i);
-            var childCode = TAB + TAB + visit(child);
-            code.append(childCode);
+            var childCode = visit(child);
+
+            if (!childCode.isEmpty() && !childCode.isBlank()) {
+                code.append(childCode).append(END_STMT);
+            }
         }
 
         code.append(TAB).append(R_BRACKET);
