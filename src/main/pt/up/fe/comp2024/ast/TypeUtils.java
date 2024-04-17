@@ -156,7 +156,9 @@ public class TypeUtils {
             }
         }
 
-        throw new RuntimeException("Variable '" + varName + "' not found in the symbol table");
+//        throw new RuntimeException("Variable '" + varName + "' not found in the symbol table");
+        // Is an imported class
+        return new Type(varName, false);
     }
 
     /**
@@ -177,8 +179,8 @@ public class TypeUtils {
             }
         }
 
-        // If the method is not found, assume the return type is compatible with any type
-        return new Type("any", false);
+        // If the method is not found, assume type is import
+        return new Type(funcExpr.get("methodname"), false);
     }
 
     /**

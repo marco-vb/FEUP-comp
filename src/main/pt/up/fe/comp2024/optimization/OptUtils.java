@@ -50,9 +50,10 @@ public class OptUtils {
             case "boolean" -> "bool";
             case "String" -> "String";
             case "void" -> "V";
-            default -> throw new NotImplementedException(typeName);
+            default -> typeName;
         };
 
+        // imported type
         return type;
     }
 

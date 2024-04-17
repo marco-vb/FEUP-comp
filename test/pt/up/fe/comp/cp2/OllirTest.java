@@ -40,7 +40,7 @@ public class OllirTest {
         var filename = "pt/up/fe/comp/cp2/ollir/CompileMethodInvocation.jmm";
         var symbolTableResult = TestUtils.analyse(SpecsIo.getResource(filename));
         System.out.println(symbolTableResult);
-       // testJmmCompilation(filename, this::compileMethodInvocation);
+        testJmmCompilation(filename, this::compileMethodInvocation);
     }
 
     @Test
