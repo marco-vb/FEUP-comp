@@ -62,6 +62,9 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(PROGRAM, this::visitProgram);
         addVisit(CLASS_DECL, this::visitClass);
         addVisit(METHOD_DECL, this::visitMethod);
+        addVisit(ASSIGN_STMT, this::visitAssignStmt);
+        addVisit(EXPRESSION_STMT, this::visitExpressionStmt);
+        addVisit(RETURN_STMT, this::visitReturn);
 
         setDefaultVisit(this::defaultVisit);
     }
@@ -78,7 +81,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         return "";
     }
 
-
     /**
      * Visits a program node.
      *
@@ -92,7 +94,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         return code.toString();
     }
-
 
     private String visitClass(JmmNode node, Void unused) {
         StringBuilder code = new StringBuilder();
@@ -135,6 +136,21 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         return code.toString();
     }
 
+    private String buildConstructor() {
+        StringBuilder code = new StringBuilder(".construct ");
+        code.append(table.getClassName()).append("().V").append(L_BRACKET);
+
+        addIndent();
+
+        code.append(indentation()).append("invokespecial(this, \"<init>\").V");
+        code.append(END_STMT);
+
+        removeIndent();
+        code.append(indentation()).append(R_BRACKET);
+
+        return code.toString();
+    }
+
     private String visitMethod(JmmNode node, Void unused) {
         StringBuilder code = new StringBuilder(".method ");
 
@@ -169,24 +185,36 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         var returnType = table.getReturnType(node.get("name"));
 
-        // If return is void there is no return statement so we add it
+        // If return is void there is no return statement, so we add it
         if (returnType.getName().equals("void")) {
             code.append(indentation()).append("ret.V").append(END_STMT);
         }
 
         removeIndent();
         code.append(indentation()).append(R_BRACKET);
-        
+
         return code.toString();
     }
 
-    private String buildConstructor() {
-        return TAB + ".construct " + table.getClassName() +
-                "().V" + L_BRACKET + TAB + TAB +
-                "invokespecial(this, \"<init>\").V;" + NL +
-                TAB + R_BRACKET;
-    }
+    private String visitAssignStmt(JmmNode node, Void unused) {
+        OllirExprResult lhs = exprVisitor.visit(node.getJmmChild(0));
+        OllirExprResult rhs = exprVisitor.visit(node.getJmmChild(1));
 
+        StringBuilder code = new StringBuilder();
+
+        // statement has type of lhs
+        Type thisType = getExprType(node.getJmmChild(0), table);
+        String typeString = toOllirType(thisType);
+
+
+        code.append(indentation()).append(lhs.getComputation()).append(END_STMT);
+        code.append(indentation()).append(rhs.getComputation()).append(END_STMT);
+        code.append(lhs.getCode()).append(SPACE);
+        code.append(ASSIGN).append(typeString);
+        code.append(SPACE).append(rhs.getCode());
+
+        return code.toString();
+    }
     private String visitIdentifier(JmmNode node, Void unused){
         return node.get("name");
     }
@@ -262,31 +290,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             code.append(", ");
         }
         code.append(visit(node.getChild(node.getNumChildren()-1)));
-
-        return code.toString();
-    }
-
-
-    private String visitAssignStmt(JmmNode node, Void unused) {
-        var lhs = exprVisitor.visit(node.getJmmChild(0));
-        var varType = getExprType(node.getJmmChild(0), table);
-        var ollirType = OptUtils.toOllirType(varType);
-        var rhs = exprVisitor.visit(node.getJmmChild(1));
-
-        StringBuilder code = new StringBuilder();
-
-        // code to compute self
-        // statement has type of lhs
-        Type thisType = getExprType(node.getJmmChild(0), table);
-        String typeString = toOllirType(thisType);
-
-
-        code.append(lhs.getComputation()).append(TAB + TAB);
-        code.append(rhs.getComputation()).append(TAB + TAB);
-        code.append(lhs.getCode()).append(SPACE);
-        code.append(ASSIGN).append(typeString).append(SPACE);
-        code.append(rhs.getCode());
-
 
         return code.toString();
     }
