@@ -1,8 +1,11 @@
 package pt.up.fe.comp2024.ast;
 
+import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
+
+import static pt.up.fe.comp2024.ast.Kind.METHOD_DECL;
 
 /**
  * A utility class for working with types.
@@ -233,6 +236,37 @@ public class TypeUtils {
         }
 
         return sourceType.equals(destinationType) || sourceType.getName().equals("any") || destinationType.getName().equals("any");
+    }
+
+    public static String getVarKind(String name, String method, SymbolTable table) {
+        // check if is a class name or variable name
+        var fields = table.getFields();
+        var params = table.getParameters(method);
+        var locals = table.getLocalVariables(method);
+        if (fields.stream().anyMatch(f -> f.getName().equals(name))) {
+            return "variable";
+        } else if (params.stream().anyMatch(p -> p.getName().equals(name))) {
+            return "variable";
+        } else if (locals.stream().anyMatch(l -> l.getName().equals(name))) {
+            return "variable";
+        }
+        return "class";
+    }
+
+    public static String getInvokeType(JmmNode node, SymbolTable table) {
+        // get right type between invokespecial, invokestatic and invokevirtual
+
+        var method = node.getParent();
+        while (!method.isInstance(METHOD_DECL)) method = method.getParent();
+
+        var name = node.getChild(0).get("name");
+        var methodName = method.get("name");
+        var variableKind = getVarKind(name, methodName, table);
+
+        if (variableKind.equals("variable")) {
+            return "invokevirtual";
+        }
+        return "invokestatic";
     }
 
     /**

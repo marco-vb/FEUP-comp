@@ -9,10 +9,9 @@ class CompileMethodInvocation {
     public int foo() {
         int a;
 
-        a = io.readInt();
+        a = 1;
 
         io.println(a);
-        // invokestatic(io, "println", a.i32).V;
 
         return 0;
     }

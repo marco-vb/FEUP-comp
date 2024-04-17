@@ -9,6 +9,7 @@ import pt.up.fe.comp2024.ast.TypeUtils;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
 import static pt.up.fe.comp2024.ast.TypeUtils.getExprType;
+import static pt.up.fe.comp2024.ast.TypeUtils.getInvokeType;
 import static pt.up.fe.comp2024.optimization.OptUtils.toOllirType;
 
 /**
@@ -39,9 +40,10 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
     private OllirExprResult visitFuncExpr(JmmNode node, Void unused) {
         StringBuilder code = new StringBuilder();
-        code.append("invokestatic(");
+        code.append(getInvokeType(node, table)).append("(");
 
-        var type = getExprType(node.getChild(0), table).getName();
+
+        var type = node.getChild(0).get("name");
         code.append(type).append(", \"");
         code.append(node.get("methodname")).append("\"");
 

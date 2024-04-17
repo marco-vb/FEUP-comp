@@ -146,7 +146,7 @@ public class SemanticAnalysisTest {
     public void assumeArguments() {
         var result = TestUtils
                 .analyse(SpecsIo.getResource("pt/up/fe/comp/cp2/semanticanalysis/AssumeArguments.jmm"));
-        TestUtils.noErrors(result);
+         TestUtils.noErrors(result);
         System.out.println(result.getReports());
     }
 
