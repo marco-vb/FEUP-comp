@@ -99,7 +99,7 @@ expr
     | '[' (expr (',' expr)*)? ']'       #ArrayExpr
     | NEW classname=ID '(' ')'          #NewExpr
     | NEW INT '[' expr ']'              #NewArrayExpr
-    | THIS                              #ThisExpr
+    | name=THIS                         #ThisExpr
     | expr op=('*' | '/') expr          #BinaryExpr
     | expr op=('+' | '-') expr          #BinaryExpr
     | expr op=('<=' | '<' | '>' | '>=')

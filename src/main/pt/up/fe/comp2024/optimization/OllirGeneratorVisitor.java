@@ -54,8 +54,14 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(FUNC_EXPR, this::visitFuncExpr);
         addVisit(VAR_REF_EXPR, this::visitVarRefExpr);
         addVisit(EXPRESSION_STMT, this::visitExpressionStmt);
+        addVisit(THIS_EXPR, this::visitThisExpr);
 
         setDefaultVisit(this::defaultVisit);
+    }
+
+    private String visitThisExpr(JmmNode jmmNode, Void unused) {
+        var x = 1;
+        return "this";
     }
 
     private String visitIdentifier(JmmNode node, Void unused){
@@ -216,6 +222,11 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             if (!childCode.isEmpty() && !childCode.isBlank()) {
                 code.append(childCode).append(END_STMT);
             }
+        }
+
+        var returnType = table.getReturnType(node.get("name"));
+        if (returnType.getName().equals("void")) {
+            code.append(TAB).append("ret.V").append(END_STMT);
         }
 
         code.append(TAB).append(R_BRACKET);

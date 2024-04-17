@@ -10,6 +10,7 @@ import pt.up.fe.specs.util.utilities.StringLines;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -88,7 +89,7 @@ public class JasminGenerator {
         // generate super class
         var superClass = ollirResult.getOllirClass().getSuperClass();
 
-        if (superClass == null) {
+        if (Objects.equals(superClass, "Object")) {
             superClass = "java/lang/Object";
         }
 

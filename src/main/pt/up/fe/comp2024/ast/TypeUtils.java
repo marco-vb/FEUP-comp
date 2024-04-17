@@ -186,7 +186,7 @@ public class TypeUtils {
         }
 
         // If the method is not found, assume type is import
-        return new Type(funcExpr.get("methodname"), false);
+        return new Type("any", false);
     }
 
     /**
