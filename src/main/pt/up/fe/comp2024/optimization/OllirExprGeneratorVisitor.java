@@ -8,6 +8,8 @@ import pt.up.fe.comp.jmm.ast.PreorderJmmVisitor;
 import pt.up.fe.comp2024.ast.TypeUtils;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
+import static pt.up.fe.comp2024.ast.TypeUtils.getExprType;
+import static pt.up.fe.comp2024.optimization.OptUtils.toOllirType;
 
 /**
  * Generates OLLIR code from JmmNodes that are expressions.
@@ -35,9 +37,32 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         setDefaultVisit(this::defaultVisit);
     }
 
-    private OllirExprResult visitFuncExpr(JmmNode jmmNode, Void unused) {
-        var a = 1;
-        return null;
+    private OllirExprResult visitFuncExpr(JmmNode node, Void unused) {
+        StringBuilder code = new StringBuilder();
+        code.append("invokestatic(");
+
+        var type = getExprType(node.getChild(0), table).getName();
+        code.append(type).append(", \"");
+        code.append(node.get("methodname")).append("\"");
+
+        for (var i = 1; i < node.getNumChildren(); i++) {
+            if (i == 1) code.append(", ");
+            code.append(visit(node.getChild(i)));
+        }
+
+        code.append(")");
+        var parent = node.getParent();
+
+        if (parent.isInstance(ASSIGN_STMT)) {
+            var returnType = getExprType(parent.getJmmChild(0), table);
+            code.append(toOllirType(returnType));
+        } else {
+            code.append("V");
+        }
+
+        code.append(END_STMT);
+
+        return new OllirExprResult(code.toString());
     }
 
 

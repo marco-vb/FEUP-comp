@@ -92,14 +92,23 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         var type = getExprType(node.getChild(0), table).getName();
         code.append(type).append(", \"");
-        code.append(node.get("methodname")).append("\", ");
+        code.append(node.get("methodname")).append("\"");
 
         for (var i = 1; i < node.getNumChildren(); i++) {
-            var child = node.getChild(i);
+            if (i == 1) code.append(", ");
             code.append(visit(node.getChild(i)));
         }
 
-        code.append(").V");
+        code.append(")");
+        var parent = node.getParent();
+
+        if (parent.isInstance(ASSIGN_STMT)) {
+            var returnType = getExprType(parent.getJmmChild(0), table);
+            code.append(toOllirType(returnType));
+        } else {
+            code.append("V");
+        }
+
         code.append(END_STMT);
         return code.toString();
     }
@@ -114,7 +123,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     private String visitArgs(JmmNode node, Void unused){
         StringBuilder code = new StringBuilder();
-        if (node.getChildren().size() == 0)
+        if (node.getChildren().isEmpty())
             return "";
 
         for (int i = 0; i < node.getNumChildren()-1; i++){
@@ -143,7 +152,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
         code.append(lhs.getCode()).append(SPACE);
         code.append(ASSIGN).append(typeString).append(SPACE);
-        code.append(rhs.getCode()).append(END_STMT);
+        code.append(rhs.getCode());
 
         return code.toString();
     }
