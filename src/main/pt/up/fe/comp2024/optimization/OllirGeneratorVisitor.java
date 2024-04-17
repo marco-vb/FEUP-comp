@@ -28,12 +28,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     private final SymbolTable table;
     private final OllirExprGeneratorVisitor exprVisitor;
 
-    public OllirGeneratorVisitor(SymbolTable table) {
-        this.table = table;
-        this.table.print();
-        exprVisitor = new OllirExprGeneratorVisitor(table);
-    }
-
     private String indentation() {
         return indent.stream().reduce("", String::concat);
     }
@@ -46,6 +40,11 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         indent.add(TAB);
     }
 
+    public OllirGeneratorVisitor(SymbolTable table) {
+        this.table = table;
+        this.table.print();
+        exprVisitor = new OllirExprGeneratorVisitor(table);
+    }
 
     @Override
     protected void buildVisitor() {

@@ -6,22 +6,12 @@ class CompileMethodInvocation {
 
     }
 
-    public int add(int a, int b){
-        int c;
-        c = a + b;
-        return c;
-    }
-
     public int foo() {
         int a;
-        int d;
-        CompileMethodInvocation c;
-        c = new CompileMethodInvocation();
 
         a = 1;
-        d = c.add(a, 2);
 
-        io.println(d);
+        io.println(a);
 
         return 0;
     }
