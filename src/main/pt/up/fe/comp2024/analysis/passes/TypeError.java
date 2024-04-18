@@ -33,6 +33,7 @@ public class TypeError extends AnalysisVisitor {
         addVisit(Kind.ARRAY_ACCESS_EXPR, this::visitArrayAccessExpr);
         addVisit(Kind.BINARY_EXPR, this::visitBinaryExpr);
         addVisit(Kind.ASSIGN_STMT, this::visitAssignStmt);
+        addVisit(Kind.ARRAY_ASSIGN_STMT, this::visitArrayAssignStmt);
         addVisit(Kind.IF_ELSE_STMT, this::visitIfElseStmt);
         addVisit(Kind.WHILE_STMT, this::visitWhileStmt);
         addVisit(Kind.RETURN_STMT, this::visitReturnStmt);
@@ -215,6 +216,67 @@ public class TypeError extends AnalysisVisitor {
                 }
 
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Visits an array assignment statement node and performs the following checks:
+     * - The identifier must be an array variable.
+     * - The index must be an integer expression.
+     * - The value must be compatible with the array type.
+     * If any of these conditions are not met, an error report is added.
+     *
+     * @param arrayAssignStmt The array assignment statement node to visit.
+     * @param table The symbol table.
+     * @return null
+     */
+    private Void visitArrayAssignStmt(JmmNode arrayAssignStmt, SymbolTable table) {
+        System.out.println(arrayAssignStmt.toTree());
+
+        var identifier = arrayAssignStmt.getChildren().get(0);
+        var index = arrayAssignStmt.getChildren().get(1);
+        var value = arrayAssignStmt.getChildren().get(2);
+
+        var identifierType = TypeUtils.getExprType(identifier, table);
+        var indexType = TypeUtils.getExprType(index, table);
+        var valueType = TypeUtils.getExprType(value, table);
+
+        // Check if the identifier is an array variable
+        if (!identifierType.isArray()) {
+            var message = "Array assignment must be done to an array variable. Found: " + TypeUtils.getTypeName(identifierType) + ".";
+            addReport(Report.newError(
+                    Stage.SEMANTIC,
+                    NodeUtils.getLine(arrayAssignStmt),
+                    NodeUtils.getColumn(arrayAssignStmt),
+                    message,
+                    null)
+            );
+        }
+
+        // Check if the index is an integer expression
+        if (!TypeUtils.areTypesAssignable(indexType, TypeUtils.getIntType(), table)) {
+            var message = "Array index must be an integer expression. Found: " + TypeUtils.getTypeName(indexType) + ".";
+            addReport(Report.newError(
+                    Stage.SEMANTIC,
+                    NodeUtils.getLine(arrayAssignStmt),
+                    NodeUtils.getColumn(arrayAssignStmt),
+                    message,
+                    null)
+            );
+        }
+
+        // Check if the value is compatible with the array type
+        if (!TypeUtils.areTypesAssignable(valueType, new Type(identifierType.getName(), false), table)) {
+            var message = "Cannot assign a value of type '" + TypeUtils.getTypeName(valueType) + "' to an array of type '" + identifierType.getName() + "'.";
+            addReport(Report.newError(
+                    Stage.SEMANTIC,
+                    NodeUtils.getLine(arrayAssignStmt),
+                    NodeUtils.getColumn(arrayAssignStmt),
+                    message,
+                    null)
+            );
         }
 
         return null;
