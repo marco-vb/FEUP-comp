@@ -283,4 +283,10 @@ public class TypeUtils {
     public static String getTypeName(Type type) {
         return type.getName() + (type.isArray() ? "[]" : "");
     }
+
+    public static boolean isField(JmmNode node, SymbolTable table) {
+        var fields = table.getFields();
+        var name = node.get("name");
+        return fields.stream().anyMatch(f -> f.getName().equals(name));
+    }
 }

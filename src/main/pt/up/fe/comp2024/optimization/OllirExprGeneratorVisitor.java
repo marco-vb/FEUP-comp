@@ -41,7 +41,24 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         Type type = TypeUtils.getExprType(node, table);
         String ollirType = OptUtils.toOllirType(type);
 
+        // if variable is field need to getfield first
+        if (TypeUtils.isField(node, table)) {
+            return generateGetField(node, ollirType);
+        }
+
         return new OllirExprResult(node.get("name") + ollirType);
+    }
+
+    private static OllirExprResult generateGetField(JmmNode node, String ollirType) {
+        var temp = OptUtils.getTemp();
+        var computation = new StringBuilder();
+        computation.append(temp).append(ollirType).append(" :=");
+        computation.append(ollirType).append(" getfield(");
+        computation.append("this, ");
+        computation.append(node.get("name")).append(ollirType);
+        computation.append(")").append(ollirType);
+
+        return new OllirExprResult(temp + ollirType, computation);
     }
 
     private OllirExprResult visitInteger(JmmNode node, Void unused) {

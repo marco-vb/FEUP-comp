@@ -4,6 +4,7 @@ import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.AJmmVisitor;
 import pt.up.fe.comp.jmm.ast.JmmNode;
+import pt.up.fe.comp2024.ast.TypeUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -211,6 +212,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
      * @return
      */
     private String visitAssignStmt(JmmNode node, Void unused) {
+        JmmNode assigned = node.getJmmChild(0);
         OllirExprResult lhs = exprVisitor.visit(node.getJmmChild(0));
         OllirExprResult rhs = exprVisitor.visit(node.getJmmChild(1));
 
@@ -220,6 +222,9 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         Type thisType = getExprType(node.getJmmChild(0), table);
         String typeString = toOllirType(thisType);
 
+        if (TypeUtils.isField(assigned, table)) {
+            return generatePutField(rhs, code, assigned, typeString);
+        }
 
         if (OptUtils.notEmptyWS(lhs.getComputation())) {
             code.append(lhs.getComputation()).append(END_STMT).append(indentation());
@@ -232,6 +237,15 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         code.append(" :=").append(typeString).append(" ");
         code.append(rhs.getCode()).append(END_STMT);
 
+        return code.toString();
+    }
+
+    private String generatePutField(OllirExprResult rhs, StringBuilder code, JmmNode assigned, String typeString) {
+        if (OptUtils.notEmptyWS(rhs.getComputation())) {
+            code.append(rhs.getComputation()).append(END_STMT).append(indentation());
+        }
+        code.append("putfield(this, ").append(assigned.get("name")).append(typeString);
+        code.append(", ").append(rhs.getCode()).append(").V").append(END_STMT);
         return code.toString();
     }
 
