@@ -36,7 +36,8 @@ public enum Kind {
     ARGUMENT,
     THIS_EXPR,
     UNARY_EXPR,
-    ARRAY_ASSIGN_STMT;
+    ARRAY_ASSIGN_STMT,
+    PAREN_EXPR;
 
     private static final Set<Kind> STATEMENTS = Set.of(
             ASSIGN_STMT,
