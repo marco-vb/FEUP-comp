@@ -18,13 +18,16 @@ import java.util.List;
  */
 public class TypeError extends AnalysisVisitor {
 
+    private JmmNode currentClass;
     private JmmNode currentMethod;
+
 
     /**
      * Creates a new instance of the {@link TypeError} class.
      */
     @Override
     public void buildVisitor() {
+        addVisit(Kind.CLASS_DECL, this::visitClassDecl);
         addVisit(Kind.METHOD_DECL, this::visitMethodDecl);
 
         addVisit(Kind.ARRAY_ACCESS_EXPR, this::visitArrayAccessExpr);
@@ -37,9 +40,19 @@ public class TypeError extends AnalysisVisitor {
     }
 
     /**
+     * Visits a class declaration
+     *
+     * @param classDecl The class declaration
+     * @param table The symbol table
+     */
+    private Void visitClassDecl(JmmNode classDecl, SymbolTable table) {
+        currentClass = classDecl;
+
+        return null;
+    }
+
+    /**
      * Visits a method declaration node and sets the current method.
-     * Also checks if the vararg parameter is the last parameter in the method declaration.
-     * If it is not, an error report is added.
      *
      * @param method The method declaration node to visit.
      * @param table The symbol table.
@@ -47,22 +60,6 @@ public class TypeError extends AnalysisVisitor {
      */
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         currentMethod = method;
-
-        var arguments = method.getChildren().get(1).getChildren();
-        for (var i = 0; i < arguments.size() - 1; i++) {
-            var argType = TypeUtils.getExprType(arguments.get(i), table);
-
-            if (argType.isArray()) {
-                var message = "Vararg parameter must be last in a method declaration.";
-                addReport(Report.newError(
-                        Stage.SEMANTIC,
-                        NodeUtils.getLine(arguments.get(i)),
-                        NodeUtils.getColumn(arguments.get(i)),
-                        message,
-                        null)
-                );
-            }
-        }
 
         return null;
     }
@@ -321,9 +318,11 @@ public class TypeError extends AnalysisVisitor {
         var methodName = funcExpr.get("methodname");
         var callArgs = funcExpr.getChildren().subList(1, funcExpr.getNumChildren());
 
-        List<Symbol> params;
+        List<JmmNode> params;
+        List<Symbol> tableParams;
         if (table.getMethods().contains(methodName)) {
-            params = table.getParameters(methodName);
+            params = TypeUtils.getMethodParams(methodName, currentClass);
+            tableParams = table.getParameters(methodName);
         }
         else {
             return null;
@@ -331,7 +330,7 @@ public class TypeError extends AnalysisVisitor {
 
         // Check if last parameter is vararg
         // If it is, the number of arguments must be at least the number of parameters minus 1
-        if (!params.isEmpty() && params.get(params.size() - 1).getType().isArray()) {
+        if (!params.isEmpty() && params.get(params.size() - 1).getChild(0).get("isVarargs").equals("true")) {
             if (params.size() > callArgs.size()) {
                 var message = "Method '" + methodName + "' expects at least " + (params.size() - 1) + " arguments, but " + callArgs.size() + " were provided.";
                 addReport(Report.newError(
@@ -347,8 +346,8 @@ public class TypeError extends AnalysisVisitor {
         }
 
         // Check if the number of arguments is correct
-        if (params.size() != callArgs.size()) {
-            var message = "Method '" + methodName + "' expects " + params.size() + " arguments, but " + callArgs.size() + " were provided.";
+        if (tableParams.size() != callArgs.size()) {
+            var message = "Method '" + methodName + "' expects " + tableParams.size() + " arguments, but " + callArgs.size() + " were provided.";
             addReport(Report.newError(
                     Stage.SEMANTIC,
                     NodeUtils.getLine(funcExpr),
@@ -360,8 +359,8 @@ public class TypeError extends AnalysisVisitor {
         }
 
         // Check if the arguments are of the correct type
-        for (var i = 0; i < params.size(); i++) {
-            var param = params.get(i);
+        for (var i = 0; i < tableParams.size(); i++) {
+            var param = tableParams.get(i);
 
             var paramType = param.getType();
             var argType = TypeUtils.getExprType(callArgs.get(i), table);

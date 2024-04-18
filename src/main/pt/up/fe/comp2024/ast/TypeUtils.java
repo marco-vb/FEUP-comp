@@ -5,6 +5,8 @@ import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 
+import java.util.List;
+
 import static pt.up.fe.comp2024.ast.Kind.METHOD_DECL;
 
 /**
@@ -138,10 +140,10 @@ public class TypeUtils {
 
         var varName = varRefExpr.get("name");
 
-        // Check if the variable is a field
-        for (var field : fields) {
-            if (field.getName().equals(varName)) {
-                return field.getType();
+        // Check if the variable is a local variable
+        for (var local : locals) {
+            if (local.getName().equals(varName)) {
+                return local.getType();
             }
         }
 
@@ -152,10 +154,10 @@ public class TypeUtils {
             }
         }
 
-        // Check if the variable is a local variable
-        for (var local : locals) {
-            if (local.getName().equals(varName)) {
-                return local.getType();
+        // Check if the variable is a field
+        for (var field : fields) {
+            if (field.getName().equals(varName)) {
+                return field.getType();
             }
         }
 
@@ -288,5 +290,16 @@ public class TypeUtils {
         var fields = table.getFields();
         var name = node.get("name");
         return fields.stream().anyMatch(f -> f.getName().equals(name));
+    }
+
+    public static List<JmmNode> getMethodParams(String methodName, JmmNode currentClass) {
+        var methods = currentClass.getChildren(Kind.METHOD_DECL);
+        for (var method : methods) {
+            if (method.get("name").equals(methodName)) {
+                return method.getChild(1).getChildren(Kind.ARGUMENT);
+            }
+        }
+
+        return List.of();
     }
 }
