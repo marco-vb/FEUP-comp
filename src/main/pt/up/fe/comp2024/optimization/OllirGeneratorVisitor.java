@@ -92,7 +92,24 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         node.getChildren().stream().map(this::visit).forEach(code::append);
 
 
-        return cleanUp(code.toString());
+        return formatOllir(cleanUp(code.toString()));
+    }
+
+    private String formatOllir(String s) {
+        int brackets = 0;
+        StringBuilder formatted = new StringBuilder();
+        List<String> lines = List.of(s.split("\n"));
+        for (String line : lines) {
+            if (line.contains("}")) {
+                brackets--;
+            }
+            formatted.append(TAB.repeat(Math.max(0, brackets)));
+            formatted.append(line).append("\n");
+            if (line.contains("{")) {
+                brackets++;
+            }
+        }
+        return formatted.toString();
     }
 
     private String cleanUp(String string) {
@@ -113,7 +130,10 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         // add new line after semicolon
         string = string.replaceAll(";", ";\n");
 
-        return " " + string;
+        // remove single space before each line
+        string = string.replaceAll("\n ", "\n");
+
+        return string;
     }
 
 
