@@ -15,6 +15,7 @@ import pt.up.fe.comp2024.analysis.passes.ThisInStaticMethod;
 import pt.up.fe.comp2024.analysis.passes.DuplicatedElement;
 import pt.up.fe.comp2024.analysis.passes.InvalidMethodDeclaration;
 import pt.up.fe.comp2024.analysis.passes.InvalidVarargs;
+import pt.up.fe.comp2024.analysis.passes.FieldInStaticMethod;
 import pt.up.fe.comp2024.symboltable.JmmSymbolTableBuilder;
 
 import java.util.ArrayList;
@@ -38,6 +39,7 @@ public class JmmAnalysisImpl implements JmmAnalysis {
         analysisPasses.add(new DuplicatedElement());
         analysisPasses.add(new InvalidMethodDeclaration());
         analysisPasses.add(new ThisInStaticMethod());
+        analysisPasses.add(new FieldInStaticMethod());
         analysisPasses.add(new InvalidVarargs());
         analysisPasses.add(new UndeclaredVariable());
         analysisPasses.add(new UndefinedMethod());
