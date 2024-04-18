@@ -77,7 +77,7 @@ public class TypeError extends AnalysisVisitor {
     private Void visitVarDecl(JmmNode varDecl, SymbolTable table) {
         var isArray = varDecl.getChild(0).get("isArray").equals("true");
 
-        if (isArray) {
+        if (isArray && varDecl.getDescendants().size() > 1) {
             var lengthExpr = varDecl.getDescendants().get(varDecl.getDescendants().size() - 1);
             var lengthType = TypeUtils.getExprType(lengthExpr, table);
 
