@@ -56,10 +56,16 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(CLASS_DECL, this::visitClass);
         addVisit(METHOD_DECL, this::visitMethod);
         addVisit(ASSIGN_STMT, this::visitAssignStmt);
-        addVisit(EXPRESSION_STMT, this::visitExpressionStmt);
         addVisit(RETURN_STMT, this::visitReturn);
+        addVisit(EXPRESSION_STMT, this::visitExpressionStmt);
+        addVisit(VAR_DECL, this::visitVariableDecl);
 
         setDefaultVisit(this::defaultVisit);
+    }
+
+    private String visitVariableDecl(JmmNode jmmNode, Void unused) {
+        // do nothing when a variable is declared. Just here to avoid default visit.
+        return "";
     }
 
     /**
@@ -70,7 +76,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
      * @return
      */
     private String defaultVisit(JmmNode node, Void unused) {
-        System.out.println("Default visit used: " + node.getKind());
+        System.out.println("Default visit used in OllirGeneratorVisitor: " + node.getKind());
         return "";
     }
 
@@ -187,9 +193,9 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         // add method statements
         for (int i = 2; i < node.getNumChildren(); i++) {
             var childCode = visit(node.getJmmChild(i));
-            if (!OptUtils.notEmptyWS(childCode)) continue;
-
-            code.append(indentation()).append(childCode);
+            if (OptUtils.notEmptyWS(childCode)) {
+                code.append(indentation()).append(childCode);
+            }
         }
 
         var returnType = table.getReturnType(node.get("name"));
@@ -213,19 +219,26 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
      */
     private String visitAssignStmt(JmmNode node, Void unused) {
         JmmNode assigned = node.getJmmChild(0);
-        OllirExprResult lhs = exprVisitor.visit(node.getJmmChild(0));
-        OllirExprResult rhs = exprVisitor.visit(node.getJmmChild(1));
+        JmmNode assignee = node.getJmmChild(1);
+
+        OllirExprResult lhs = exprVisitor.visit(assigned);
+        OllirExprResult rhs = exprVisitor.visit(assignee);
 
         StringBuilder code = new StringBuilder();
 
-        // statement has type of lhs
-        Type thisType = getExprType(node.getJmmChild(0), table);
-        String typeString = toOllirType(thisType);
+        // assignment has type of lhs
+        String assignedType = toOllirType(getExprType(assigned, table));
 
+        // if lhs is a field, we use putfield
         if (TypeUtils.isField(assigned, table)) {
-            return generatePutField(rhs, code, assigned, typeString);
+            return generatePutField(rhs, code, assigned, assignedType);
         }
 
+        // else we generate a normal assignment
+        return generateAssignment(lhs, code, rhs, assignedType);
+    }
+
+    private String generateAssignment(OllirExprResult lhs, StringBuilder code, OllirExprResult rhs, String assignedType) {
         if (OptUtils.notEmptyWS(lhs.getComputation())) {
             code.append(lhs.getComputation()).append(END_STMT).append(indentation());
         }
@@ -234,7 +247,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         }
 
         code.append(lhs.getCode());
-        code.append(" :=").append(typeString).append(" ");
+        code.append(" :=").append(assignedType).append(" ");
         code.append(rhs.getCode()).append(END_STMT);
 
         return code.toString();
