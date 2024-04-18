@@ -100,7 +100,7 @@ public class TypeUtils {
             case INTEGER_LITERAL, ARRAY_ACCESS_EXPR -> getIntType();
             case BOOLEAN_LITERAL, UNARY_EXPR -> getBooleanType();
             case THIS_EXPR -> new Type(table.getClassName(), false);
-            case PAREN_EXPR -> getExprType(expr.getChild(0), table);
+            case PAREN_EXPR, ASSIGN_STMT -> getExprType(expr.getChild(0), table);
             default -> throw new UnsupportedOperationException("Can't compute type for expression kind '" + kind + "'");
         };
     }

@@ -91,7 +91,29 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         StringBuilder code = new StringBuilder();
         node.getChildren().stream().map(this::visit).forEach(code::append);
 
-        return code.toString();
+
+        return cleanUp(code.toString());
+    }
+
+    private String cleanUp(String string) {
+        // remove all white space
+        string = string.replaceAll("\\s+", " ");
+
+        // remove repeated semicolons (allow only one semicolon)
+        string = string.replaceAll(";(\\s+;+)*", ";");
+
+        // no semicolons directly after { or }
+        string = string.replaceAll("\\{\\s+;", "{");
+        string = string.replaceAll("}\\s+;", "}");
+
+        // add new line after brackets
+        string = string.replaceAll("\\{", "{ \n");
+        string = string.replaceAll("}", "} \n");
+
+        // add new line after semicolon
+        string = string.replaceAll(";", ";\n");
+
+        return " " + string;
     }
 
 
@@ -194,7 +216,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         for (int i = 2; i < node.getNumChildren(); i++) {
             var childCode = visit(node.getJmmChild(i));
             if (OptUtils.notEmptyWS(childCode)) {
-                code.append(indentation()).append(childCode);
+                code.append(indentation()).append(childCode).append(END_STMT);
             }
         }
 
@@ -240,10 +262,10 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     private String generateAssignment(OllirExprResult lhs, StringBuilder code, OllirExprResult rhs, String assignedType) {
         if (OptUtils.notEmptyWS(lhs.getComputation())) {
-            code.append(lhs.getComputation()).append(END_STMT).append(indentation());
+            code.append(lhs.getComputation()).append(indentation());
         }
         if (OptUtils.notEmptyWS(rhs.getComputation())) {
-            code.append(rhs.getComputation()).append(END_STMT).append(indentation());
+            code.append(rhs.getComputation()).append(indentation());
         }
 
         code.append(lhs.getCode());
@@ -255,7 +277,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
 
     private String generatePutField(OllirExprResult rhs, StringBuilder code, JmmNode assigned, String typeString) {
         if (OptUtils.notEmptyWS(rhs.getComputation())) {
-            code.append(rhs.getComputation()).append(END_STMT).append(indentation());
+            code.append(rhs.getComputation()).append(indentation());
         }
         code.append("putfield(this, ").append(assigned.get("name")).append(typeString);
         code.append(", ").append(rhs.getCode()).append(").V").append(END_STMT);
@@ -277,7 +299,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         var expr = exprVisitor.visit(node.getJmmChild(0));
 
         if (OptUtils.notEmptyWS(expr.getComputation())) {
-            code.append(expr.getComputation()).append(END_STMT).append(indentation());
+            code.append(expr.getComputation()).append(indentation());
         }
 
         code.append("ret").append(toOllirType(retType)).append(" ").append(expr.getCode());
@@ -296,7 +318,8 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         StringBuilder code = new StringBuilder();
         var expr = exprVisitor.visit(node.getJmmChild(0));
 
-        code.append(expr.getCode());
+        code.append(expr.getComputation()).append(indentation());
+        code.append(expr.getCode()).append(END_STMT);
         return code.toString();
     }
 

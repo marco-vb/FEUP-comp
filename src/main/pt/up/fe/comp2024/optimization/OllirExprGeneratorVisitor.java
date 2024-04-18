@@ -18,7 +18,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
     private static final String SPACE = " ";
     private static final String ASSIGN = ":=";
-    private final String END_STMT = ";\n";
+    private static final String END_STMT = ";\n";
 
     private final SymbolTable table;
 
@@ -66,30 +66,52 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
             computation.append(computation(arg));
         }
 
-        OllirExprResult invocation = generateInvocation(node, callerExprResult, caller, type, argumentResult);
+        OllirExprResult invocation = generateInvocation(node, caller, type, argumentResult);
 
         computation.append(computation(invocation));
+        computation.append(END_STMT);
 
         return new OllirExprResult(invocation.getCode(), computation.toString());
     }
 
-    private OllirExprResult generateInvocation(JmmNode node, OllirExprResult callerExprResult, String caller, String type, ArrayList<OllirExprResult> argumentResult) {
+    private OllirExprResult generateInvocation(JmmNode node, String caller, String type, ArrayList<OllirExprResult> argumentResult) {
         String invoke = caller.equals(type) ? "invokestatic" : "invokevirtual";
 
         JmmNode parent = node.getParent();
 
         if (!(parent.isInstance(ASSIGN_STMT) || parent.isInstance(BINARY_EXPR) || parent.isInstance(RETURN_STMT))) {
-            return generateVoidInvocation(node, callerExprResult, caller, type, invoke, argumentResult);
+            return generateVoidInvocation(node, caller, type, invoke, argumentResult);
         }
 
-        return generateNonVoidInvocation(node, callerExprResult, caller, type, invoke);
+        return generateNonVoidInvocation(node, caller, type, invoke, argumentResult);
     }
 
-    private OllirExprResult generateNonVoidInvocation(JmmNode node, OllirExprResult callerExprResult, String caller, String type, String invoke) {
-        return new OllirExprResult("");
+    private OllirExprResult generateVoidInvocation(JmmNode node, String caller, String type, String invoke, ArrayList<OllirExprResult> argumentResult) {
+        StringBuilder code = new StringBuilder();
+        code.append(generateInvocationUntilReturn(node, caller, type, invoke, argumentResult));
+        code.append(")").append(".V").append(END_STMT);
+
+        return new OllirExprResult(code.toString());
     }
 
-    private OllirExprResult generateVoidInvocation(JmmNode node, OllirExprResult callerExprResult, String caller, String type, String invoke, ArrayList<OllirExprResult> argumentResult) {
+
+    private OllirExprResult generateNonVoidInvocation(JmmNode node, String caller, String type, String invoke, ArrayList<OllirExprResult> argumentResult) {
+        StringBuilder computation = new StringBuilder();
+        String returnType = OptUtils.toOllirType(TypeUtils.getExprType(node.getParent(), table));
+
+        var temp = OptUtils.getTemp();
+        computation.append(temp).append(returnType).append(" :=");
+        computation.append(returnType).append(" ");
+        computation.append(generateInvocationUntilReturn(node, caller, type, invoke, argumentResult));
+
+        computation.append(")");
+
+        computation.append(returnType).append(END_STMT);
+
+        return new OllirExprResult(temp + returnType, computation);
+    }
+
+    private String generateInvocationUntilReturn(JmmNode node, String caller, String type, String invoke, ArrayList<OllirExprResult> argumentResult) {
         StringBuilder code = new StringBuilder();
 
         code.append(invoke).append("(");
@@ -107,113 +129,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
             code.append(ollirExprResult.getCode());
         }
 
-        code.append(")").append(".V").append(END_STMT);
-
-        return new OllirExprResult(code.toString());
-    }
-
-    private OllirExprResult generateStaticInvocation(JmmNode node, OllirExprResult callerExprResult, String caller) {
-        StringBuilder computation = new StringBuilder();
-
-        String invoke = "invokestatic";
-
-        JmmNode parent = node.getParent();
-
-        if (!(parent.isInstance(ASSIGN_STMT) || parent.isInstance(BINARY_EXPR) || parent.isInstance(RETURN_STMT))) {
-            return generateVoidStaticInvocation(node, callerExprResult, caller);
-        }
-
-        return generateNonVoidStaticInvocation(node, callerExprResult, caller, computation, invoke);
-    }
-
-    private OllirExprResult generateNonVoidStaticInvocation(JmmNode node, OllirExprResult callerExprResult, String caller, StringBuilder computation, String invoke) {
-        String returnType = OptUtils.toOllirType(TypeUtils.getExprType(node, table));
-
-        computation.append(computation(callerExprResult));
-
-        ArrayList<OllirExprResult> argumentResult = generateArguments(node);
-
-        for (var arg : argumentResult) {
-            computation.append(computation(arg));
-        }
-
-        var temp = OptUtils.getTemp();
-
-        computation.append(temp).append(returnType);
-        computation.append(" :=").append(returnType).append(" ");
-        computation.append(invoke).append("(");
-
-        computation.append(caller).append(", \"");
-        computation.append(node.get("methodname")).append("\"");
-
-        for (var ollirExprResult : argumentResult) {
-            computation.append(", ");
-            computation.append(ollirExprResult.getCode());
-        }
-
-        computation.append(")").append(returnType);
-
-        return new OllirExprResult(temp + returnType, computation.toString());
-    }
-
-    private OllirExprResult generateVoidStaticInvocation(JmmNode node, OllirExprResult callerExprResult, String caller) {
-        StringBuilder code = new StringBuilder();
-        String invoke = "invokestatic";
-
-        code.append(computation(callerExprResult));
-
-        ArrayList<OllirExprResult> argumentResult = generateArguments(node);
-
-        for (var arg : argumentResult) {
-            code.append(computation(arg));
-        }
-
-        code.append(invoke).append("(");
-
-        code.append(caller).append(", \"");
-        code.append(node.get("methodname")).append("\"");
-
-        for (var ollirExprResult : argumentResult) {
-            code.append(", ");
-            code.append(ollirExprResult.getCode());
-        }
-
-        code.append(")").append(".V").append(END_STMT);
-
-        return new OllirExprResult(code.toString());
-    }
-
-    private OllirExprResult generateVirtualInvocation(JmmNode node, OllirExprResult callerExprResult, String caller, String type) {
-        StringBuilder computation = new StringBuilder();
-
-        String invoke = "invokevirtual";
-        String returnType = OptUtils.toOllirType(TypeUtils.getExprType(node, table));
-
-        computation.append(computation(callerExprResult));
-
-        ArrayList<OllirExprResult> argumentResult = generateArguments(node);
-
-        for (var arg : argumentResult) {
-            computation.append(computation(arg));
-        }
-
-        var temp = OptUtils.getTemp();
-
-        computation.append(temp).append(returnType);
-        computation.append(" :=").append(returnType).append(" ");
-        computation.append(invoke).append("(");
-
-        computation.append(caller).append(".").append(type).append(", \"");
-        computation.append(node.get("methodname")).append("\"");
-
-        for (var ollirExprResult : argumentResult) {
-            computation.append(", ");
-            computation.append(ollirExprResult.getCode());
-        }
-
-        computation.append(")").append(returnType);
-
-        return new OllirExprResult(temp + returnType, computation.toString());
+        return code.toString();
     }
 
     private  ArrayList<OllirExprResult> generateArguments(JmmNode node) {
@@ -254,7 +170,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         computation.append(ollirType).append(" getfield(");
         computation.append("this, ");
         computation.append(node.get("name")).append(ollirType);
-        computation.append(")").append(ollirType);
+        computation.append(")").append(ollirType).append(END_STMT);
 
         return new OllirExprResult(temp + ollirType, computation);
     }
@@ -266,7 +182,8 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         StringBuilder computation = new StringBuilder();
 
         // compute the children
-        computation.append(computation(lhs)).append(computation(rhs));
+        computation.append(computation(lhs));
+        computation.append(computation(rhs));
 
         // code to compute self
         return getFinalAssignmentCode(node, computation, lhs, rhs);
@@ -281,7 +198,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         computation.append(lhs.getCode()).append(" ");
 
         computation.append(node.get("op")).append(type);
-        computation.append(" ").append(rhs.getCode());
+        computation.append(" ").append(rhs.getCode()).append(END_STMT);
 
         return new OllirExprResult(code, computation);
     }
@@ -303,7 +220,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
         computation.append("        invokespecial(");
         computation.append(temp).append(".").append(type);
-        computation.append(", \"<init>\").V");
+        computation.append(", \"<init>\").V").append(END_STMT);
 
         return new OllirExprResult(temp + "." + type, computation);
     }
