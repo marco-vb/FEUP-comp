@@ -6,6 +6,7 @@ import pt.up.fe.comp.jmm.ast.AJmmVisitor;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
 import static pt.up.fe.comp2024.ast.TypeUtils.getExprType;
@@ -50,6 +51,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
     protected void buildVisitor() {
 
         addVisit(PROGRAM, this::visitProgram);
+        addVisit(IMPORT_DECL, this::visitImport);
         addVisit(CLASS_DECL, this::visitClass);
         addVisit(METHOD_DECL, this::visitMethod);
         addVisit(ASSIGN_STMT, this::visitAssignStmt);
@@ -85,6 +87,12 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         return code.toString();
     }
 
+
+    private String visitImport(JmmNode jmmNode, Void unused) {
+        List<String> name = jmmNode.getObjectAsList("name", String.class);
+        return "import " + String.join(".", name) + END_STMT;
+    }
+
     /**
      * Visits a class node. Generates fields, methods and constructor.
      * @param node
@@ -93,11 +101,6 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
      */
     private String visitClass(JmmNode node, Void unused) {
         StringBuilder code = new StringBuilder();
-
-        // get imports
-        for (var imp : table.getImports()) {
-            code.append("import ").append(imp).append(END_STMT);
-        }
 
         // class name
         code.append(table.getClassName());
