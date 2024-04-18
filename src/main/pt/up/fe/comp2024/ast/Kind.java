@@ -34,7 +34,9 @@ public enum Kind {
     NEW_ARRAY_EXPR,
     ARRAY_EXPR,
     ARGUMENT,
-    THIS_EXPR;
+    THIS_EXPR,
+    UNARY_EXPR,
+    PAREN_EXPR;
 
     private static final Set<Kind> STATEMENTS = Set.of(ASSIGN_STMT, RETURN_STMT, IF_ELSE_STMT, WHILE_STMT);
     private static final Set<Kind> EXPRESSIONS = Set.of(

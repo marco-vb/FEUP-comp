@@ -6,6 +6,7 @@ import pt.up.fe.comp.jmm.analysis.table.Type;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 
 import static pt.up.fe.comp2024.ast.Kind.METHOD_DECL;
+import static pt.up.fe.comp2024.ast.Kind.VAR_REF_EXPR;
 
 /**
  * A utility class for working with types.
@@ -99,6 +100,7 @@ public class TypeUtils {
             case INTEGER_LITERAL, ARRAY_ACCESS_EXPR -> getIntType();
             case BOOLEAN_LITERAL -> getBooleanType();
             case THIS_EXPR -> new Type(table.getClassName(), false);
+            case PAREN_EXPR -> getExprType(expr.getChild(0), table);
             default -> throw new UnsupportedOperationException("Can't compute type for expression kind '" + kind + "'");
         };
     }
@@ -264,7 +266,18 @@ public class TypeUtils {
         var method = node.getParent();
         while (!method.isInstance(METHOD_DECL)) method = method.getParent();
 
-        var name = node.getChild(0).get("name");
+        var varRef = node.getChild(0);
+        while (varRef != null && !varRef.isInstance(VAR_REF_EXPR)) {
+            if (varRef.getNumChildren() == 0) varRef = null;
+            else varRef = varRef.getChild(0);
+        }
+
+        if (varRef == null) {
+            // is a new expression
+            return "invokevirtual";
+        }
+
+        var name = varRef.get("name");
         var methodName = method.get("name");
         var variableKind = getVarKind(name, methodName, table);
 
