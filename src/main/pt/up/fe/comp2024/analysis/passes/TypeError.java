@@ -288,22 +288,6 @@ public class TypeError extends AnalysisVisitor {
     private Void visitReturnStmt(JmmNode returnStmt, SymbolTable table) {
         var methodReturnType = table.getReturnType(currentMethod.get("name"));
 
-        // Check if the method returns 'void', in which case it should not return any value
-        if (TypeUtils.areTypesAssignable(methodReturnType, TypeUtils.getVoidType(), table)) {
-            if (returnStmt.getNumChildren() > 0) {
-                var message = "Cannot return a value from a method that returns 'void'.";
-                addReport(Report.newError(
-                        Stage.SEMANTIC,
-                        NodeUtils.getLine(returnStmt),
-                        NodeUtils.getColumn(returnStmt),
-                        message,
-                        null)
-                );
-            }
-
-            return null;
-        }
-
         var returnValue = returnStmt.getChildren().get(0);
         var returnType = TypeUtils.getExprType(returnValue, table);
 

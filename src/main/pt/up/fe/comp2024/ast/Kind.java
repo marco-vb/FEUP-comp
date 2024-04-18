@@ -49,7 +49,8 @@ public enum Kind {
             NEW_ARRAY_EXPR,
             ARRAY_EXPR,
             FUNC_EXPR,
-            THIS_EXPR
+            THIS_EXPR,
+            UNARY_EXPR
     );
 
     private final String name;
