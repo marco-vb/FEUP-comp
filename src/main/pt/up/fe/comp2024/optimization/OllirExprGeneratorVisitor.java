@@ -6,6 +6,9 @@ import pt.up.fe.comp.jmm.ast.AJmmVisitor;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp2024.ast.TypeUtils;
 
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+
 import static pt.up.fe.comp2024.ast.Kind.*;
 import static pt.up.fe.comp2024.ast.TypeUtils.getExprType;
 import static pt.up.fe.comp2024.optimization.OptUtils.toOllirType;
@@ -106,12 +109,25 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         var parent = node.getParent();
         String returnType;
 
+        ArrayList<OllirExprResult> argumentResult = new ArrayList<>();
+
+        var n = node.getNumChildren();
+        for (var i = 1; i < n; i++) {
+            argumentResult.add(visit(node.getChild(i)));
+        }
+
         if (parent.isInstance(ASSIGN_STMT)) {
             returnType = toOllirType(getExprType(parent.getJmmChild(0), table));
         } else if (parent.isInstance(BINARY_EXPR)) {
             returnType = toOllirType(getExprType(parent, table));
         } else {
-            return voidInvocation(node, invoke, temp, type, caller);
+            return voidInvocation(node, invoke, temp, type, caller, argumentResult);
+        }
+
+        for (var arg : argumentResult) {
+            if (OptUtils.notEmptyWS(arg.getComputation())) {
+                computation.append(arg.getComputation()).append(END_STMT);
+            }
         }
 
         computation.append(temp).append(returnType);
@@ -121,11 +137,9 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         computation.append(caller).append(".").append(type).append(", \"");
         computation.append(node.get("methodname")).append("\"");
 
-        var n = node.getNumChildren();
-        for (var i = 1; i < n; i++) {
+        for (var ollirExprResult : argumentResult) {
             computation.append(", ");
-            var expr = visit(node.getChild(i)).getCode();
-            computation.append(expr);
+            computation.append(ollirExprResult.getCode());
         }
 
         computation.append(")").append(returnType);
@@ -133,8 +147,15 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         return new OllirExprResult(temp + returnType, computation.toString());
     }
 
-    private OllirExprResult voidInvocation(JmmNode node, String invoke, String temp, String type, String caller) {
+    private OllirExprResult voidInvocation(JmmNode node, String invoke, String temp, String type, String caller, ArrayList<OllirExprResult> arguments) {
         StringBuilder code = new StringBuilder();
+
+        for (var arg : arguments) {
+            if (OptUtils.notEmptyWS(arg.getComputation())) {
+                code.append(arg.getComputation()).append(END_STMT);
+            }
+        }
+
         code.append(invoke).append("(");
         code.append(caller);
 
@@ -145,11 +166,9 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         code.append(", \"");
         code.append(node.get("methodname")).append("\"");
 
-        var n = node.getNumChildren();
-        for (var i = 1; i < n; i++) {
+        for (var ollirExprResult : arguments) {
             code.append(", ");
-            var expr = visit(node.getChild(i)).getCode();
-            code.append(expr);
+            code.append(ollirExprResult.getCode());
         }
 
         code.append(").V");
