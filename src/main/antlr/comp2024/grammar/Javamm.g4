@@ -88,7 +88,7 @@ varDecl
 expr
     : '(' expr ')'                      #ParenExpr
     | '!' expr                          #UnaryExpr
-    | expr '.' methodname=ID            #FuncExpr
+    | expr '.' methodname='length'      #FuncExpr
     | expr '.' methodname=ID
       '(' (expr (',' expr)* )? ')'      #FuncExpr
     | expr ('.' expr)+                  #MemberExpr
