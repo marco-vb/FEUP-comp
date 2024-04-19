@@ -9,6 +9,7 @@ import pt.up.fe.specs.util.exceptions.NotImplementedException;
 import pt.up.fe.specs.util.utilities.StringLines;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -30,6 +31,8 @@ public class JasminGenerator {
     String code;
 
     Method currentMethod;
+
+    private final HashMap<String, String> importFullNames = new HashMap<>();
 
     private final FunctionClassMap<TreeNode, String> generators;
 
@@ -68,6 +71,40 @@ public class JasminGenerator {
         return code;
     }
 
+    private void addImportFullNames(ClassUnit classUnit) {
+        for (var imp : classUnit.getImports()) {
+            String importNonQualified = imp.substring(imp.lastIndexOf(".") + 1);
+            imp = imp.replace(".", "/");
+            importFullNames.put(importNonQualified, imp);
+        }
+    }
+
+
+    private String qualifiedImports(String code) {
+        List<String> specialChars = List.of("\\(", "\\)", "\\[", "]", "/");
+        for (var ch : specialChars) {
+            code = code.replaceAll(ch, " " + ch + " ");
+        }
+        var lines = code.split("\n");
+
+        var newCode = new StringBuilder();
+
+        for (var line : lines) {
+            var words = line.split(" ");
+            for (var word : words) {
+                newCode.append(importFullNames.getOrDefault(word, word)).append(" ");
+            }
+            newCode.append("\n");
+        }
+
+        String ret = newCode.toString();
+
+        for (var ch : specialChars) {
+            ret = ret.replaceAll(" " + ch + " ", ch);
+        }
+
+        return ret;
+    }
 
     //**
     // * Generates the code for a class unit.
@@ -75,8 +112,9 @@ public class JasminGenerator {
     // * @return The generated code.
     // */
     private String generateClassUnit(ClassUnit classUnit) {
-
         var code = new StringBuilder();
+
+        addImportFullNames(classUnit);
 
         var modifier = classUnit.getClassAccessModifier() != AccessModifier.DEFAULT ?
                 classUnit.getClassAccessModifier().name().toLowerCase() + " " : "public ";
@@ -111,7 +149,7 @@ public class JasminGenerator {
             code.append(NL);
         }
 
-        return code.toString();
+        return qualifiedImports(code.toString());
     }
 
     private String generateField(Field field) {
