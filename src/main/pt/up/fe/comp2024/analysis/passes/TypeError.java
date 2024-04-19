@@ -30,7 +30,6 @@ public class TypeError extends AnalysisVisitor {
         addVisit(Kind.CLASS_DECL, this::visitClassDecl);
         addVisit(Kind.METHOD_DECL, this::visitMethodDecl);
 
-        addVisit(Kind.VAR_DECL, this::visitVarDecl);
         addVisit(Kind.ARRAY_ACCESS_EXPR, this::visitArrayAccessExpr);
         addVisit(Kind.BINARY_EXPR, this::visitBinaryExpr);
         addVisit(Kind.ASSIGN_STMT, this::visitAssignStmt);
@@ -62,36 +61,6 @@ public class TypeError extends AnalysisVisitor {
      */
     private Void visitMethodDecl(JmmNode method, SymbolTable table) {
         currentMethod = method;
-
-        return null;
-    }
-
-    /**
-     * Visits a variable declaration node and checks if the length expression of an array is an integer expression.
-     * If it is not, an error report is added.
-     *
-     * @param varDecl The variable declaration node to visit.
-     * @param table The symbol table.
-     * @return null
-     */
-    private Void visitVarDecl(JmmNode varDecl, SymbolTable table) {
-        var isArray = varDecl.getChild(0).get("isArray").equals("true");
-
-        if (isArray && varDecl.getDescendants().size() > 1) {
-            var lengthExpr = varDecl.getDescendants().get(varDecl.getDescendants().size() - 1);
-            var lengthType = TypeUtils.getExprType(lengthExpr, table);
-
-            if (!TypeUtils.areTypesAssignable(lengthType, TypeUtils.getIntType(), table)) {
-                var message = "Array length must be an integer expression. Found: " + TypeUtils.getTypeName(lengthType) + ".";
-                addReport(Report.newError(
-                        Stage.SEMANTIC,
-                        NodeUtils.getLine(varDecl),
-                        NodeUtils.getColumn(varDecl),
-                        message,
-                        null)
-                );
-            }
-        }
 
         return null;
     }
@@ -410,6 +379,10 @@ public class TypeError extends AnalysisVisitor {
     public Void visitFuncExpr(JmmNode funcExpr, SymbolTable table) {
         var methodName = funcExpr.get("methodname");
         var callArgs = funcExpr.getChildren().subList(1, funcExpr.getNumChildren());
+
+        if (methodName.equals("length")) {
+            return null;
+        }
 
         List<JmmNode> params;
         List<Symbol> tableParams;
