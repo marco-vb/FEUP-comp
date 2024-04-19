@@ -51,7 +51,7 @@ methodDecl locals[boolean isPublic=false, boolean isStatic=false]
     ;
 
 type locals[boolean isArray=false, boolean isVarargs=false]
-    : name=INT ('[' expr? ']' {$isArray=true;})?
+    : name=INT ('[' INTEGER? ']' {$isArray=true;})?
     | name=INT (ELLIPSIS {$isArray=true; $isVarargs=true;})?
     | name=BOOLEAN
     | name=VOID
