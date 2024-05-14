@@ -182,6 +182,10 @@ public class TypeUtils {
         var methodName = funcExpr.get("methodname");
         var methods = table.getMethods();
 
+        if (methodName.equals("length")) {
+            return new Type(INT_TYPE_NAME, false);
+        }
+
         // Search for the method in the symbol table
         for (var method : methods) {
             if (method.equals(methodName)) {
