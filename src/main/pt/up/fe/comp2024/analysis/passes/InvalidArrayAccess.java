@@ -14,29 +14,12 @@ import pt.up.fe.comp2024.ast.TypeUtils;
  */
 public class InvalidArrayAccess extends AnalysisVisitor {
 
-    private JmmNode currentMethod;
-
     /**
      * Create a new instance of the {@link InvalidArrayAccess} class.
      */
     @Override
     public void buildVisitor() {
-        addVisit(Kind.METHOD_DECL, this::visitMethodDecl);
-
         addVisit(Kind.ARRAY_ACCESS_EXPR, this::visitArrayAccessExpr);
-    }
-
-    /**
-     * Visits a method declaration node and sets the current method.
-     *
-     * @param node  The method declaration node.
-     * @param table The symbol table.
-     * @return null
-     */
-    private Void visitMethodDecl(JmmNode node, SymbolTable table) {
-        currentMethod = node;
-
-        return null;
     }
 
     /**

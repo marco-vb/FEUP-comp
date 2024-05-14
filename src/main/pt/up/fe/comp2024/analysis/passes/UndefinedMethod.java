@@ -33,7 +33,7 @@ public class UndefinedMethod extends AnalysisVisitor {
         var methodName = funcExpr.get("methodname");
 
         // Check if the method is defined in the current class
-        if (table.getMethods().contains(methodName)) {
+        if (table.getMethods().contains(methodName) || methodName.equals("length")) {
             return null;
         }
 
