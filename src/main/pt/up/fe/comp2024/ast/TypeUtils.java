@@ -309,6 +309,25 @@ public class TypeUtils {
         return fields.stream().anyMatch(f -> f.getName().equals(name));
     }
 
+    public static boolean isLocal(JmmNode node, SymbolTable table) {
+        var locals = table.getLocalVariables(getMethod(node).get("name"));
+        var name = node.get("name");
+        return locals.stream().anyMatch(l -> l.getName().equals(name));
+    }
+
+    public static boolean isParam(JmmNode node, SymbolTable table) {
+        var params = table.getParameters(getMethod(node).get("name"));
+        var name = node.get("name");
+        return params.stream().anyMatch(p -> p.getName().equals(name));
+    }
+
+    public static JmmNode getMethod(JmmNode node) {
+        while (node != null && !node.isInstance(METHOD_DECL)) {
+            node = node.getParent();
+        }
+        return node;
+    }
+
     public static List<JmmNode> getMethodParams(String methodName, JmmNode currentClass) {
         var methods = currentClass.getChildren(Kind.METHOD_DECL);
         for (var method : methods) {

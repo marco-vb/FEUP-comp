@@ -156,7 +156,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         String ollirType = OptUtils.toOllirType(type);
 
         // if variable is field need to getfield
-        if (TypeUtils.isField(node, table)) {
+        if (!TypeUtils.isLocal(node, table) && !TypeUtils.isParam(node, table) && TypeUtils.isField(node, table)) {
             return generateGetField(node, ollirType);
         }
 

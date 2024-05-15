@@ -272,7 +272,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         String assignedType = toOllirType(getExprType(assigned, table));
 
         // if lhs is a field, we use putfield
-        if (TypeUtils.isField(assigned, table)) {
+        if (!TypeUtils.isLocal(assigned, table) && !TypeUtils.isParam(assigned, table) && TypeUtils.isField(assigned, table)) {
             return generatePutField(rhs, code, assigned, assignedType);
         }
 
