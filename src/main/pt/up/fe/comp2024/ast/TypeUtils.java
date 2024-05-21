@@ -7,8 +7,7 @@ import pt.up.fe.comp.jmm.ast.JmmNode;
 
 import java.util.List;
 
-import static pt.up.fe.comp2024.ast.Kind.METHOD_DECL;
-import static pt.up.fe.comp2024.ast.Kind.VAR_REF_EXPR;
+import static pt.up.fe.comp2024.ast.Kind.*;
 
 /**
  * A utility class for working with types.

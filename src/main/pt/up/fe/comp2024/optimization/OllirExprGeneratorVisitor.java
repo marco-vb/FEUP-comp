@@ -79,7 +79,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
         JmmNode parent = node.getParent();
 
-        if (!(parent.isInstance(ASSIGN_STMT) || parent.isInstance(BINARY_EXPR) || parent.isInstance(RETURN_STMT))) {
+        if (!(parent.isInstance(ASSIGN_STMT) || parent.isInstance(BINARY_EXPR) || parent.isInstance(RETURN_STMT) || parent.isInstance(FUNC_EXPR))) {
             return generateVoidInvocation(node, caller, type, invoke, argumentResult);
         }
 
