@@ -238,9 +238,13 @@ public class JasminGenerator {
             var instCode = StringLines.getLines(generators.apply(inst)).stream()
                     .collect(Collectors.joining(NL, "", NL));
 
+            if (instCode.contains("return")) {
+                while (this.stack > 0) {
+                    code.append("pop\n");
+                    this.stack--;
+                }
+            }
             code.append(instCode);
-
-            for (; this.stack > 0; this.stack--) code.append("pop\n");
         }
 
         code.append(".end method");
@@ -443,8 +447,14 @@ public class JasminGenerator {
 
         switch (instruction.getInvocationType()) {
             case invokestatic -> code.append(getInvokeStatic(instruction, caller.getName()));
-            case invokespecial -> code.append(getInvokeSpecial(caller.getType()));
-            case invokevirtual -> code.append(getInvokeVirtual(instruction, caller.getType()));
+            case invokespecial -> {
+                code.append(getInvokeSpecial(caller.getType()));
+                this.stack--;
+            }
+            case invokevirtual -> {
+                code.append(getInvokeVirtual(instruction, caller.getType()));
+                this.stack--;
+            }
             default -> throw new NotImplementedException(instruction.getInvocationType());
         }
 
@@ -459,7 +469,7 @@ public class JasminGenerator {
         code.append(")").append(returnType);
         code.append(NL);
 
-        if (!returnType.equals("void")) {
+        if (!returnType.equals("V")) {
             this.stack++;
         }
 
