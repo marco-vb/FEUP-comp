@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.specs.comp.ollir.ElementType.*;
+
 /**
  * Generates Jasmin code from an OllirResult.
  * <p>
@@ -30,6 +32,8 @@ public class JasminGenerator {
     String code;
 
     Method currentMethod;
+
+    private int stack = 0;
 
     private final HashMap<String, String> importFullNames = new HashMap<>();
 
@@ -235,6 +239,8 @@ public class JasminGenerator {
                     .collect(Collectors.joining(NL, "", NL));
 
             code.append(instCode);
+
+            for (; this.stack > 0; this.stack--) code.append("pop\n");
         }
 
         code.append(".end method");
@@ -297,6 +303,8 @@ public class JasminGenerator {
         var returnType = generateParam(instruction.getField().getType());
         code.append(returnType).append(NL);
 
+        this.stack++;
+
         return code.toString();
     }
 
@@ -307,6 +315,7 @@ public class JasminGenerator {
         code.append("aload ");
         code.append(currentMethod.getVarTable().get(instruction.getObject().getName()).getVirtualReg());
         code.append(NL);
+        this.stack++;
 
         // push value onto the stack
         code.append(generators.apply(instruction.getValue()));
@@ -320,6 +329,7 @@ public class JasminGenerator {
         // Add return type
         var returnType = generateParam(instruction.getValue().getType());
         code.append(returnType).append(NL);
+        this.stack -= 2;
 
         return code.toString();
     }
@@ -428,6 +438,7 @@ public class JasminGenerator {
         // generate code for loading arguments
         for (var arg : instruction.getArguments()) {
             code.append(getOperand(arg));
+            this.stack--;
         }
 
         switch (instruction.getInvocationType()) {
@@ -444,8 +455,13 @@ public class JasminGenerator {
             code.append(generateParam(arg));
         }
 
-        code.append(")").append(generateParam(instruction.getReturnType()));
+        String returnType = generateParam(instruction.getReturnType());
+        code.append(")").append(returnType);
         code.append(NL);
+
+        if (!returnType.equals("void")) {
+            this.stack++;
+        }
 
         return code.toString();
     }
@@ -468,6 +484,7 @@ public class JasminGenerator {
     }
 
     private String generateLiteral(LiteralElement literal) {
+        this.stack++;
         return "ldc " + literal.getLiteral() + NL;
     }
 
@@ -486,6 +503,9 @@ public class JasminGenerator {
         }
 
         var reg = variable.getVirtualReg();
+
+        this.stack++;
+
         return switch (operand.getType().getTypeOfElement()) {
             case INT32, BOOLEAN -> "iload " + reg + NL;
             case STRING, ARRAYREF, OBJECTREF, THIS -> "aload " + reg + NL;
@@ -495,6 +515,8 @@ public class JasminGenerator {
 
     private String generateAssigned(Operand operand) {
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
+
+        this.stack--;
 
         return switch (operand.getType().getTypeOfElement()) {
             case INT32, BOOLEAN -> "istore " + reg + NL;
@@ -516,29 +538,25 @@ public class JasminGenerator {
             case MUL -> "imul";
             case SUB -> "isub";
             case DIV -> "idiv";
-            case SHR -> "ishr";
-            case SHL -> "ishl";
-            case SHRR -> "iushr";
             case XOR -> "ixor";
             case AND, ANDB, NOTB -> "iand";
             case OR, ORB -> "ior";
-            case LTH -> "if_icmplt";
-            case GTH -> "if_icmpgt";
-            case EQ -> "if_icmpeq";
-            case NEQ -> "if_icmpne";
-            case LTE -> "if_icmple";
-            case GTE -> "if_icmpge";
-            case NOT -> "ineg";
             default -> throw new NotImplementedException(binaryOp.getOperation().getOpType());
         };
 
         code.append(op).append(NL);
+
+        this.stack--;
 
         return code.toString();
     }
 
     private String generateReturn(ReturnInstruction inst) {
         var type = inst.getReturnType().getTypeOfElement();
+
+        if (type != VOID) {
+            this.stack--;
+        }
 
         return switch (type) {
             case INT32, BOOLEAN -> generators.apply(inst.getOperand()) + "ireturn" + NL;
