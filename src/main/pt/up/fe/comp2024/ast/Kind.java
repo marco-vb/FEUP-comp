@@ -18,6 +18,7 @@ public enum Kind {
     METHOD_DECL,
     PARAM,
     ASSIGN_STMT,
+    FIELD_ASSIGN_STMT,
     RETURN_STMT,
     BINARY_EXPR,
     INTEGER_LITERAL,
@@ -41,6 +42,7 @@ public enum Kind {
 
     private static final Set<Kind> STATEMENTS = Set.of(
             ASSIGN_STMT,
+            FIELD_ASSIGN_STMT,
             RETURN_STMT,
             IF_ELSE_STMT,
             WHILE_STMT,

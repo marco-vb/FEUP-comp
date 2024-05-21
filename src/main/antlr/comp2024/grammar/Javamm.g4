@@ -74,6 +74,7 @@ id
 stmt
     : id '=' expr ';'                   #AssignStmt
     | id '[' expr ']' '=' expr ';'      #ArrayAssignStmt
+    | THIS '.' field=id '=' expr ';'    #FieldAssignStmt
     | IF '(' expr ')' stmt ELSE stmt    #IfElseStmt
     | WHILE '(' expr ')' stmt           #WhileStmt
     | '{' stmt* '}'                     #ScopeStmt
