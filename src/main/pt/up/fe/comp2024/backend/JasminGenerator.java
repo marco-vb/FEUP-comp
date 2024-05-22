@@ -26,18 +26,41 @@ public class JasminGenerator {
     private static final String TAB = "    ";
 
     private final OllirResult ollirResult;
-
+    private final HashMap<String, String> importFullNames = new HashMap<>();
+    private final FunctionClassMap<TreeNode, String> generators;
     List<Report> reports;
-
     String code;
-
     Method currentMethod;
-
     private int stack = 0;
 
-    private final HashMap<String, String> importFullNames = new HashMap<>();
+    public JasminGenerator(OllirResult ollirResult) {
+        this.ollirResult = ollirResult;
 
-    private final FunctionClassMap<TreeNode, String> generators;
+        reports = new ArrayList<>();
+        code = null;
+        currentMethod = null;
+
+        this.generators = new FunctionClassMap<>();
+        generators.put(ClassUnit.class, this::generateClassUnit);
+        generators.put(Method.class, this::generateMethod);
+        generators.put(GetFieldInstruction.class, this::generateGetField);
+        generators.put(PutFieldInstruction.class, this::generatePutField);
+        generators.put(CallInstruction.class, this::generateCall);
+        generators.put(AssignInstruction.class, this::generateAssign);
+        generators.put(SingleOpInstruction.class, this::generateSingleOp);
+        generators.put(LiteralElement.class, this::generateLiteral);
+        generators.put(Operand.class, this::getOperand);
+        generators.put(BinaryOpInstruction.class, this::generateBinaryOp);
+        generators.put(ReturnInstruction.class, this::generateReturn);
+        generators.put(Instruction.class, this::generateInstruction);
+    }
+
+    private static String fieldClassAndName(Operand opClass, Operand field) {
+        var className = opClass.toElement().getType();
+        var name = className.toString();
+        name = name.substring(name.lastIndexOf("(") + 1, name.length() - 1);
+        return name + "/" + field.getName();
+    }
 
     public List<Report> getReports() {
         return reports;
@@ -80,28 +103,6 @@ public class JasminGenerator {
             imp = imp.replace(".", "/");
             importFullNames.put(importNonQualified, imp);
         }
-    }
-
-    public JasminGenerator(OllirResult ollirResult) {
-        this.ollirResult = ollirResult;
-
-        reports = new ArrayList<>();
-        code = null;
-        currentMethod = null;
-
-        this.generators = new FunctionClassMap<>();
-        generators.put(ClassUnit.class, this::generateClassUnit);
-        generators.put(Method.class, this::generateMethod);
-        generators.put(GetFieldInstruction.class, this::generateGetField);
-        generators.put(PutFieldInstruction.class, this::generatePutField);
-        generators.put(CallInstruction.class, this::generateCall);
-        generators.put(AssignInstruction.class, this::generateAssign);
-        generators.put(SingleOpInstruction.class, this::generateSingleOp);
-        generators.put(LiteralElement.class, this::generateLiteral);
-        generators.put(Operand.class, this::getOperand);
-        generators.put(BinaryOpInstruction.class, this::generateBinaryOp);
-        generators.put(ReturnInstruction.class, this::generateReturn);
-        generators.put(Instruction.class, this::generateInstruction);
     }
 
     //**
@@ -238,13 +239,12 @@ public class JasminGenerator {
             var instCode = StringLines.getLines(generators.apply(inst)).stream()
                     .collect(Collectors.joining(NL, "", NL));
 
-            if (instCode.contains("return")) {
-                while (this.stack > 0) {
-                    code.append("pop\n");
-                    this.stack--;
-                }
-            }
             code.append(instCode);
+
+            while (this.stack > 0) {
+                code.append("pop\n");
+                this.stack--;
+            }
         }
 
         code.append(".end method");
@@ -307,8 +307,6 @@ public class JasminGenerator {
         var returnType = generateParam(instruction.getField().getType());
         code.append(returnType).append(NL);
 
-        this.stack++;
-
         return code.toString();
     }
 
@@ -319,7 +317,6 @@ public class JasminGenerator {
         code.append("aload ");
         code.append(currentMethod.getVarTable().get(instruction.getObject().getName()).getVirtualReg());
         code.append(NL);
-        this.stack++;
 
         // push value onto the stack
         code.append(generators.apply(instruction.getValue()));
@@ -336,13 +333,6 @@ public class JasminGenerator {
         this.stack -= 2;
 
         return code.toString();
-    }
-
-    private static String fieldClassAndName(Operand opClass, Operand field) {
-        var className = opClass.toElement().getType();
-        var name = className.toString();
-        name = name.substring(name.lastIndexOf("(") + 1, name.length() - 1);
-        return name + "/" + field.getName();
     }
 
     private String generateCall(CallInstruction instruction) {
@@ -363,6 +353,7 @@ public class JasminGenerator {
         var caller = instruction.getCaller().toString();
         var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
         code.append("ldc ").append(name).append(NL);
+        this.stack++;
 
         return code.toString();
     }
@@ -390,6 +381,7 @@ public class JasminGenerator {
         var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
         name = importFullNames.getOrDefault(name, name);
         code.append("new ").append(name).append(NL);
+        this.stack++;
 
         return code.toString();
     }
@@ -505,6 +497,7 @@ public class JasminGenerator {
             return generators.apply(operand);
         }
     }
+
     private String getOperand(Operand operand) {
         var variable = currentMethod.getVarTable().get(operand.getName());
 
