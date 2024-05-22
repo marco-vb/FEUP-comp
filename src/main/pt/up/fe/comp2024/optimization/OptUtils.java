@@ -13,6 +13,7 @@ import static pt.up.fe.comp2024.ast.Kind.TYPE;
 
 public class OptUtils {
     private static int tempNumber = -1;
+    private static int labelNumber = -1;
 
     public static String getTemp() {
 
@@ -22,6 +23,10 @@ public class OptUtils {
     public static String getTemp(String prefix) {
 
         return prefix + getNextTempNum();
+    }
+
+    public static String getLabel(String prefix) {
+        return prefix + (++labelNumber);
     }
 
     public static int getNextTempNum() {

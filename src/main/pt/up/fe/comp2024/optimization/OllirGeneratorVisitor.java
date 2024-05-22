@@ -39,6 +39,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(EXPRESSION_STMT, this::visitExpressionStmt);
         addVisit(SCOPE_STMT, this::visitScopeStmt);
         addVisit(ARRAY_ASSIGN_STMT, this::visitArrayAccessStmt);
+        addVisit(IF_ELSE_STMT, this::visitIfElseStmt);
 
         setDefaultVisit(this::defaultVisit);
     }
@@ -270,6 +271,29 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         computation.append(var.getCode()).append("[").append(offset.getCode());
         computation.append("]").append(type).append(" :=").append(type);
         computation.append(" ").append(expr.getCode()).append(type).append(END_STMT);
+
+        return computation.toString();
+    }
+
+    private String visitIfElseStmt(JmmNode node, Void u) {
+        // if (<expr>) <stmt> else <stmt>
+        var expr = ev.visit(node.getJmmChild(0));
+        StringBuilder computation = new StringBuilder();
+        computation.append(expr.getComputation());
+
+        String elseLabel = OptUtils.getLabel("L_else");
+        String endLabel = OptUtils.getLabel("L_end");
+        computation.append("if (!.bool ").append(expr.getCode());
+        computation.append(") goto ").append(elseLabel).append(END_STMT);
+
+        String ifStatements = visit(node.getChild(1));
+        computation.append(ifStatements);
+        computation.append("goto ").append(endLabel).append(END_STMT);
+        computation.append(elseLabel).append(":\n");
+
+        String elseStatements = visit(node.getChild(2));
+        computation.append(elseStatements);
+        computation.append(endLabel).append(":\n");
 
         return computation.toString();
     }

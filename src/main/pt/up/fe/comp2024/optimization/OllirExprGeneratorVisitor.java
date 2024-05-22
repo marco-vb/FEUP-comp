@@ -59,8 +59,8 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
         computation.append(expr.getComputation());
         computation.append(code).append(" :=");
-        computation.append(type).append(" ");
-        computation.append(expr.getCode()).append(type).append(END_STMT);
+        computation.append(type).append(" !").append(type).append(" ");
+        computation.append(expr.getCode()).append(END_STMT);
 
         return new OllirExprResult(code, computation);
     }
@@ -279,7 +279,8 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
     private OllirExprResult visitBoolean(JmmNode node, Void unused) {
         String type = OptUtils.toOllirType(new Type(TypeUtils.getBooleanTypeName(), false));
-        return new OllirExprResult(node.get("value") + type);
+        if (node.get("value").equals("true")) return new OllirExprResult("1" + type);
+        return new OllirExprResult("0" + type);
     }
 
     private OllirExprResult visitArrayLength(JmmNode node) {
