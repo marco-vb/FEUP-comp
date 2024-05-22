@@ -38,6 +38,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         addVisit(FIELD_ASSIGN_STMT, this::visitFieldAssignStmt);
         addVisit(EXPRESSION_STMT, this::visitExpressionStmt);
         addVisit(SCOPE_STMT, this::visitScopeStmt);
+        addVisit(ARRAY_ASSIGN_STMT, this::visitArrayAccessStmt);
 
         setDefaultVisit(this::defaultVisit);
     }
@@ -248,5 +249,28 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
             code.append(visit(child, null));
         }
         return code.toString();
+    }
+
+    private String visitArrayAccessStmt(JmmNode node, Void u) {
+        // <id> [<expr>] = <expr>;
+        JmmNode assigned = node.getJmmChild(0);
+        OllirExprResult offset = ev.visit(node.getJmmChild(1));
+        OllirExprResult var = ev.visit(assigned);
+
+        JmmNode assignee = node.getJmmChild(2);
+        // evaluate expression on the right
+        OllirExprResult expr = ev.visit(assignee);
+
+        // assignment has type of lhs
+        String type = ".i32";
+
+        StringBuilder computation = new StringBuilder();
+        computation.append(var.getComputation()).append(offset.getComputation());
+        computation.append(expr.getComputation());
+        computation.append(var.getCode()).append("[").append(offset.getCode());
+        computation.append("]").append(type).append(" :=").append(type);
+        computation.append(" ").append(expr.getCode()).append(type).append(END_STMT);
+
+        return computation.toString();
     }
 }

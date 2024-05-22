@@ -31,6 +31,9 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         addVisit(MEMBER_EXPR, this::visitMemberExpr);
         addVisit(NEW_EXPR, this::visitNewExpr);
         addVisit(VAR_REF_EXPR, this::visitVariable);
+        addVisit(ARRAY_ACCESS_EXPR, this::visitArrayAccessExpr);
+        addVisit(NEW_ARRAY_EXPR, this::visitNewArrayExpr);
+        addVisit(ARRAY_EXPR, this::visitArrayExpr);
         addVisit(IDENTIFIER, this::visitVariable);
         addVisit(INTEGER_LITERAL, this::visitInteger);
         addVisit(BOOLEAN_LITERAL, this::visitBoolean);
@@ -82,6 +85,11 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
     private OllirExprResult visitFuncExpr(JmmNode node, Void u) {
         JmmNode first = node.getChild(0);
+
+        // array.length
+        if (node.get("methodname").equals("length")){
+            return visitArrayLength(node);
+        }
 
         // this.method() or this.field
         if (first.isInstance(THIS_EXPR)) {
@@ -254,7 +262,7 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
     private OllirExprResult visitVariable(JmmNode node, Void u) {
         Type type = TypeUtils.getExprType(node, table);
-        String ollirType = OptUtils.toOllirType(type);
+        String ollirType = toOllirType(type);
 
         // if variable is field need to getfield
         if (!TypeUtils.isLocal(node, table) && !TypeUtils.isParam(node, table) && TypeUtils.isField(node, table)) {
@@ -274,6 +282,84 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         return new OllirExprResult(node.get("value") + type);
     }
 
+    private OllirExprResult visitArrayLength(JmmNode node) {
+        String type = ".i32";   // array.length is i32
+        String tmp = OptUtils.getTemp("tmp") + type;
+
+        // <expr>.length
+        var expr = visit(node.getChild(0));
+
+        StringBuilder computation = new StringBuilder();
+        computation.append(expr.getComputation());
+        computation.append(tmp).append(" :=").append(type);
+        computation.append(" arraylength(").append(expr.getCode());
+        computation.append(")").append(type).append(END_STMT);
+
+        return new OllirExprResult(tmp, computation);
+    }
+
+    private OllirExprResult visitArrayAccessExpr(JmmNode node, Void u) {
+        String type = ".i32";
+        String tmp = OptUtils.getTemp("tmp") + type;
+
+        var var = visit(node.getChild(0));
+        var expr = visit(node.getChild(1));
+
+        StringBuilder computation = new StringBuilder();
+        computation.append(var.getComputation()).append(expr.getComputation());
+        computation.append(tmp).append(" :=").append(type);
+        computation.append(" ").append(var.getCode());
+        computation.append("[").append(expr.getCode()).append("]");
+        computation.append(type).append(END_STMT);
+
+        return new OllirExprResult(tmp, computation);
+    }
+
+    private OllirExprResult visitNewArrayExpr(JmmNode node, Void u) {
+        String type = ".array.i32"; // Jmm arrays are always int
+        String tmp = OptUtils.getTemp("tmp") + type;
+
+        // new int[<expr>];
+        var expr = visit(node.getChild(0));
+
+        StringBuilder computation = new StringBuilder();
+        computation.append(expr.getComputation());
+
+        computation.append(tmp).append(" :=").append(type);
+        computation.append(" new(array, ").append(expr.getCode());
+        computation.append(")").append(type).append(END_STMT);
+
+        return new OllirExprResult(tmp, computation);
+    }
+
+    private OllirExprResult visitArrayExpr(JmmNode node, Void u) {
+        String type = ".array.int32";
+        String tmp = OptUtils.getTemp("tmp");
+        int n = node.getNumChildren();
+        StringBuilder computation = new StringBuilder();
+
+        ArrayList<OllirExprResult> exprs = new ArrayList<>();
+        for (var child : node.getChildren()) {
+            exprs.add(visit(child));
+        }
+
+        for (var expr : exprs) {
+            computation.append(expr.getComputation());
+        }
+
+        computation.append(tmp).append(type).append(" :=").append(type);
+        computation.append(" new(array, ").append(n);
+        computation.append(".i32)").append(type).append(END_STMT);
+
+        for (int i = 0; i < n; i++) {
+            computation.append(tmp).append("[");
+            computation.append(i).append(".i32].i32 :=.i32 ");
+            computation.append(exprs.get(i).getCode()).append(END_STMT);
+        }
+
+        return new OllirExprResult(tmp + type, computation);
+    }
+
     private Type getReturnType(JmmNode node) {
         JmmNode parent = node.getParent();
 
@@ -285,6 +371,10 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
 
         if (returnType != null) {
             return returnType;
+        }
+
+        if (node.get("methodname").equals("length")) {
+            return TypeUtils.getIntType();
         }
 
         if (parent.isInstance(BINARY_EXPR)) {
