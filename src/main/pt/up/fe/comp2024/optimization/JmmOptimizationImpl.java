@@ -74,6 +74,9 @@ public class JmmOptimizationImpl implements JmmOptimization {
         Symbol lastParam = params.get(params.size() - 1);
         JmmNode lastChild = node.getChild(node.getNumChildren() - 1);
 
+        // last argument is not array, no change needed
+        if (!lastParam.getType().isArray()) return;
+
         // last argument is array but last child is also array, no need to change
         if (lastParam.getType().isArray() && lastChild.isInstance(ARRAY_EXPR)) return;
 
