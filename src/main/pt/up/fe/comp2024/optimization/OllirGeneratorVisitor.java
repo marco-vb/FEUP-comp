@@ -9,7 +9,6 @@ import pt.up.fe.comp2024.ast.TypeUtils;
 import java.util.List;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
-import static pt.up.fe.comp2024.ast.Kind.FIELD_ASSIGN_STMT;
 import static pt.up.fe.comp2024.ast.TypeUtils.getExprType;
 import static pt.up.fe.comp2024.optimization.OptUtils.toOllirType;
 
@@ -85,7 +84,9 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         StringBuilder code = new StringBuilder();
         node.getChildren().stream().map(this::visit).forEach(code::append);
 
-        return format(code.toString());
+        String c = format(code.toString());
+        System.out.println(c);
+        return c;
     }
 
     private String visitImport(JmmNode node, Void u) {
@@ -155,7 +156,7 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
                 .reduce((a, b) -> a + ", " + b).orElse("");
 
         code.append("(").append(params).append(")");
-        code.append(toOllirType(node.getJmmChild(0))).append("{\n");
+        code.append(toOllirType(node.getJmmChild(0))).append(" {\n");
 
         // add method statements
         for (int i = 2; i < node.getNumChildren(); i++) {
@@ -194,13 +195,25 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         // assignment has type of lhs
         String type = toOllirType(getExprType(assigned, table)) + " ";
 
+        // if variable is field need to getfield
+        if (!TypeUtils.isLocal(assigned, table)
+                && !TypeUtils.isParam(assigned, table)
+                && TypeUtils.isField(assigned, table)) {
+            return generateFieldAssignStmt(node);
+        }
+
+        OllirExprResult var = ev.visit(assigned);
+
         // evaluate expression on the right
         OllirExprResult expr = ev.visit(assignee);
 
-        return expr.getComputation() + assigned.get("name") + type + ":=" + type + expr.getCode() + END_STMT;
+        String ret = var.getComputation() + expr.getComputation() + var.getCode() + " :=" + type + expr.getCode();
+
+        if (ret.endsWith(END_STMT)) return ret;
+        return ret + END_STMT;
     }
 
-    private String visitFieldAssignStmt(JmmNode node, Void u) {
+    private String generateFieldAssignStmt(JmmNode node) {
         // this.<field> = <expr>;
         JmmNode field = node.getJmmChild(0);
         JmmNode assignee = node.getJmmChild(1);
@@ -217,12 +230,16 @@ public class OllirGeneratorVisitor extends AJmmVisitor<Void, String> {
         assert fieldType != null;
         String type = toOllirType(fieldType);
 
-        return expr.getComputation() + "putfield(this, " + field.get("name") + type + ", " + expr.getCode() + ")" + END_STMT;
+        return expr.getComputation() + "putfield(this, " + field.get("name") + type + ", " + expr.getCode() + ").V" + END_STMT;
+    }
+
+    private String visitFieldAssignStmt(JmmNode node, Void u) {
+        return generateFieldAssignStmt(node);
     }
 
     private String visitExpressionStmt(JmmNode node, Void u) {
         var expr = ev.visit(node.getJmmChild(0));
-        return expr.getComputation() + expr.getCode() + END_STMT;
+        return expr.getComputation();
     }
 
     private String visitScopeStmt(JmmNode node, Void u) {

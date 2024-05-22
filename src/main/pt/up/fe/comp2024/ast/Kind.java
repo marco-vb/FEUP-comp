@@ -21,8 +21,10 @@ public enum Kind {
     FIELD_ASSIGN_STMT,
     RETURN_STMT,
     BINARY_EXPR,
+    MEMBER_EXPR,
     INTEGER_LITERAL,
     EXPRESSION_STMT,
+    DOT_EXPR,
     FUNC_EXPR,
     SCOPE_STMT,
     VAR_REF_EXPR,
@@ -50,6 +52,7 @@ public enum Kind {
             SCOPE_STMT,
             ARRAY_ASSIGN_STMT
     );
+
     private static final Set<Kind> EXPRESSIONS = Set.of(
             BINARY_EXPR,
             INTEGER_LITERAL,
@@ -61,7 +64,8 @@ public enum Kind {
             ARRAY_EXPR,
             FUNC_EXPR,
             THIS_EXPR,
-            UNARY_EXPR
+            UNARY_EXPR,
+            DOT_EXPR
     );
 
     private final String name;
