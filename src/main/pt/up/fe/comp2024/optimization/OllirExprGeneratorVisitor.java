@@ -66,6 +66,10 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
     }
 
     private OllirExprResult visitBinaryExpr(JmmNode node, Void u) {
+        if (node.get("op").equals("&&")) {
+            return visitShortCutAndExpr(node);
+        }
+
         StringBuilder computation = new StringBuilder();
         OllirExprResult left = visit(node.getChild(0));
         OllirExprResult right = visit(node.getChild(1));
@@ -81,6 +85,30 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         computation.append(right.getCode()).append(END_STMT);
 
         return new OllirExprResult(temp, computation);
+    }
+
+    private OllirExprResult visitShortCutAndExpr(JmmNode node) {
+        StringBuilder computation = new StringBuilder();
+        OllirExprResult left = visit(node.getChild(0));
+        computation.append(left.getComputation());
+
+        String falseLabel = OptUtils.getLabel("L_false");
+        String endLabel = OptUtils.getLabel("L_end");
+        String tmp = OptUtils.getTemp("tmp");
+
+        computation.append("if (!.bool ").append(left.getCode()).append(") goto ");
+        computation.append(falseLabel).append(END_STMT);
+
+        OllirExprResult right = visit(node.getChild(1));
+        computation.append(right.getComputation());
+
+        computation.append(tmp).append(".bool :=.bool ").append(right.getCode()).append(END_STMT);
+        computation.append("goto ").append(endLabel).append(END_STMT);
+        computation.append(falseLabel).append(":\n");
+        computation.append(tmp).append(".bool :=.bool 0.bool").append(END_STMT);
+        computation.append(endLabel).append(":\n");
+
+        return new OllirExprResult(tmp + ".bool", computation);
     }
 
     private OllirExprResult visitFuncExpr(JmmNode node, Void u) {
