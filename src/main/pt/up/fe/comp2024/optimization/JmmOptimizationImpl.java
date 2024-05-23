@@ -9,6 +9,8 @@ import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.ast.JmmNodeImpl;
 import pt.up.fe.comp.jmm.ollir.JmmOptimization;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
+import pt.up.fe.comp2024.CompilerConfig;
+import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.TypeUtils;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
@@ -17,6 +19,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 public class JmmOptimizationImpl implements JmmOptimization {
+
+    ArrayList<Kind> assignments;
+
+    public JmmOptimizationImpl() {
+        assignments = new ArrayList<>();
+        assignments.add(ASSIGN_STMT);
+        assignments.add(ARRAY_ASSIGN_STMT);
+        assignments.add(FIELD_ASSIGN_STMT);
+    }
 
     @Override
     public OllirResult toOllir(JmmSemanticsResult semanticsResult) {
@@ -37,21 +48,136 @@ public class JmmOptimizationImpl implements JmmOptimization {
 
     @Override
     public JmmSemanticsResult optimize(JmmSemanticsResult semanticsResult) {
-        return this.inPlaceArrayForVarArgs(semanticsResult);
+        var config = semanticsResult.getConfig();
+        var optimize = CompilerConfig.getOptimize(config);
+
+        if (optimize) {
+            optimizeConstantPropAndFold(semanticsResult.getRootNode(), semanticsResult.getSymbolTable());
+        }
+        inPlaceArrayForVarArgs(semanticsResult.getRootNode(), semanticsResult.getSymbolTable());
+        return semanticsResult;
+    }
+
+    private void optimizeConstantPropAndFold(JmmNode node, SymbolTable table) {
+        while (propagate(node, table) || fold(node, table)) ;
+    }
+
+    private boolean propagate(JmmNode node, SymbolTable table) {
+
+        return false;
+    }
+
+    private boolean fold(JmmNode node, SymbolTable table) {
+        boolean ret = false;
+
+        try {
+            if (assignments.contains(Kind.fromString(node.getKind()))) {
+                ret |= foldExpr(node, table);
+            }
+        } catch (Exception e) {
+            // thrown by Kind.fromString, ignore
+        }
+
+        for (var child : node.getChildren()) {
+            ret |= fold(child, table);
+        }
+
+        return ret;
+    }
+
+    private boolean foldExpr(JmmNode node, SymbolTable table) {
+        JmmNode expr = node.getChild(node.getNumChildren() - 1);
+        
+        if (expr.isInstance(INTEGER_LITERAL) || expr.isInstance(BOOLEAN_LITERAL)) return false;
+        if (!canEvaluate(expr)) return false;
+
+        int value = evaluateExpr(expr);
+        String result = String.valueOf(value);
+
+        Type type = TypeUtils.getExprType(expr, table);
+        AJmmNode add;
+        if (type.equals(TypeUtils.getBooleanType())) {
+            result = value == 1 ? "true" : "false";
+            add = new JmmNodeImpl(BOOLEAN_LITERAL.toString());
+        } else {
+            add = new JmmNodeImpl(INTEGER_LITERAL.toString());
+        }
+        add.put("value", result);
+        expr.detach();
+        node.add(add);
+
+        return true;
+    }
+
+    private int evaluateExpr(JmmNode node) {
+        if (node.isInstance(INTEGER_LITERAL))
+            return Integer.parseInt(node.get("value"));
+        if (node.isInstance(BOOLEAN_LITERAL))
+            return node.get("value").equals("true") ? 1 : 0;
+        if (node.isInstance(PAREN_EXPR))
+            return evaluateExpr(node.getChild(0));
+        if (node.isInstance(UNARY_EXPR))
+            return 1 - evaluateExpr(node.getChild(0));
+        if (node.isInstance(BINARY_EXPR)) {
+            int left = evaluateExpr(node.getChild(0));
+            int right = evaluateExpr(node.getChild(1));
+
+            String operator = node.get("op");
+            if ("+-*/".contains(operator)) {
+                return switch (operator) {
+                    case "+" -> left + right;
+                    case "-" -> left - right;
+                    case "*" -> left * right;
+                    case "/" -> left / right;
+                    default -> 0;
+                };
+            } else if (operator.equals("&&") || operator.equals("||")) {
+                boolean res = switch (operator) {
+                    case "&&" -> left == 1 && right == 1;
+                    case "||" -> left == 1 || right == 1;
+                    default -> false;
+                };
+
+                return res ? 1 : 0;
+            } else {
+                boolean res = switch (operator) {
+                    case "<" -> left < right;
+                    case "<=" -> left <= right;
+                    case ">" -> left > right;
+                    case ">=" -> left >= right;
+                    case "==" -> left == right;
+                    default -> false;
+                };
+
+                return res ? 1 : 0;
+            }
+        }
+        return 0;
+    }
+
+    private boolean canEvaluate(JmmNode node) {
+        if (node.isInstance(INTEGER_LITERAL))
+            return true;
+        if (node.isInstance(BOOLEAN_LITERAL))
+            return true;
+        if (node.isInstance(PAREN_EXPR))
+            return canEvaluate(node.getChild(0));
+        if (node.isInstance(BINARY_EXPR))
+            return canEvaluate(node.getChild(0)) && canEvaluate(node.getChild(1));
+        if (node.isInstance(UNARY_EXPR))
+            return canEvaluate(node.getChild(0));
+        return false;
     }
 
     // this pass will transform calls to varargs methods with calls with arrays
     // example:
     // public int foo(int... a) { return a[0]; }
     // this.foo(1, 2, 3); -> this.foo([1,2,3]);
-    private JmmSemanticsResult inPlaceArrayForVarArgs(JmmSemanticsResult node) {
-        JmmNode root = node.getRootNode();
-        SymbolTable table = node.getSymbolTable();
-        dfs(root, table);
-        return node;
+    private void inPlaceArrayForVarArgs(JmmNode node, SymbolTable table) {
+        dfsReplaceVarArgCalls(node, table);
     }
 
-    private void dfs(JmmNode node, SymbolTable table) {
+    private void dfsReplaceVarArgCalls(JmmNode node, SymbolTable table) {
         if (node.isInstance(FUNC_EXPR)) {
             var methods = table.getMethods();
             for (var method : methods) {
@@ -63,7 +189,7 @@ public class JmmOptimizationImpl implements JmmOptimization {
 
         // if not func expr continue visit
         for (var child : node.getChildren()) {
-            dfs(child, table);
+            dfsReplaceVarArgCalls(child, table);
         }
     }
 
