@@ -262,6 +262,7 @@ public class JasminGenerator {
 
         // unset method
         currentMethod = null;
+        this.maxStack = 0;
 
         return code.toString();
     }
@@ -650,15 +651,17 @@ public class JasminGenerator {
     private String generateReturn(ReturnInstruction inst) {
         var type = inst.getReturnType().getTypeOfElement();
 
-        if (type != VOID) {
-            updateStack(-1);
-        }
-
-        return switch (type) {
+        String ret =  switch (type) {
             case INT32, BOOLEAN -> generators.apply(inst.getOperand()) + "ireturn" + NL;
             case STRING, ARRAYREF, OBJECTREF -> getOperand((Operand) inst.getOperand()) + "areturn" + NL;
             case VOID -> "return" + NL;
             default -> throw new NotImplementedException(type);
         };
+        
+        if (type != VOID) {
+            updateStack(-1);
+        }
+
+        return ret;
     }
 }
