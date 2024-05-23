@@ -349,6 +349,7 @@ public class JasminGenerator {
         code.append("aload ");
         code.append(vr);
         code.append(NL);
+        updateStack(1);
 
         // push value onto the stack
         code.append(generators.apply(instruction.getValue()));
@@ -359,7 +360,6 @@ public class JasminGenerator {
         code.append(fieldClassAndName(instruction.getObject(), instruction.getField()));
         code.append(" ");
 
-        updateStack(2);
 
         // Add return type
         var returnType = generateParam(instruction.getValue().getType());
