@@ -530,6 +530,9 @@ public class JasminGenerator {
         if ((assign.getDest()) instanceof ArrayOperand arrayOperand) {
             code.append(generateArrayAssigned(assign, arrayOperand));
         } else {
+            if (canBeIncInst(assign)) {
+                return generateIIncInst((BinaryOpInstruction) assign.getRhs());
+            }
             // generate code for loading what's on the right
             code.append(generators.apply(assign.getRhs()));
 
@@ -661,10 +664,6 @@ public class JasminGenerator {
     }
 
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
-        if (canBeIncInst(binaryOp)) {
-            return generateIIncInst(binaryOp);
-        }
-
         var code = new StringBuilder();
 
         // load values on the left and on the right
@@ -690,11 +689,18 @@ public class JasminGenerator {
         return code.toString();
     }
 
-    private boolean canBeIncInst(BinaryOpInstruction inst) {
+    private boolean canBeIncInst(AssignInstruction assign) {
+        if (!(assign.getRhs() instanceof BinaryOpInstruction inst)) {
+            return false;
+        }
+
         if (!(inst.getOperation().getOpType().equals(ADD) || inst.getOperation().getOpType().equals(SUB))) {
             return false;
         }
-        
+
+        Operand assignee = (Operand) assign.getDest();
+        String name = assignee.getName();
+
         boolean leftLiteral = inst.getLeftOperand().isLiteral();
         boolean rightLiteral = inst.getRightOperand().isLiteral();
 
@@ -704,13 +710,19 @@ public class JasminGenerator {
         if (leftLiteral) {
             LiteralElement left = (LiteralElement) inst.getLeftOperand();
             int val = Integer.parseInt(left.getLiteral());
-            if (val < Byte.MIN_VALUE || val > Byte.MAX_VALUE) return false;
+            if (val < Byte.MIN_VALUE || val > Byte.MAX_VALUE || rightLiteral) return false;
+
+            Operand right = (Operand) inst.getRightOperand();
+            if (!right.getName().equals(name)) return false;
         }
 
         if (rightLiteral) {
             LiteralElement right = (LiteralElement) inst.getRightOperand();
             int val = Integer.parseInt(right.getLiteral());
             if (val < Byte.MIN_VALUE || val > Byte.MAX_VALUE) return false;
+
+            Operand left = (Operand) inst.getLeftOperand();
+            if (!left.getName().equals(name)) return false;
         }
 
         return leftInt && rightInt && (leftLiteral ^ rightLiteral);
@@ -725,11 +737,7 @@ public class JasminGenerator {
 
             if (inst.getOperation().getOpType().equals(SUB)) val = -val;
 
-            String inc = "iinc " + reg + " " + val + NL;
-            String iload = reg <= 3 ? "iload_" : "iload ";
-            updateLocal(reg);
-            updateStack(1);
-            return inc + iload + reg + NL;
+            return "iinc " + reg + " " + val + NL;
         }
         Operand operand = (Operand) inst.getLeftOperand();
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
@@ -737,11 +745,7 @@ public class JasminGenerator {
         var val = Integer.parseInt(right.getLiteral());
         if (inst.getOperation().getOpType().equals(SUB)) val = -val;
 
-        String inc = "iinc " + reg + " " + val + NL;
-        String iload = reg <= 3 ? "iload_" : "iload ";
-        updateLocal(reg);
-        updateStack(1);
-        return inc + iload + reg + NL;
+        return "iinc " + reg + " " + val + NL;
     }
 
     private String generateUnaryOp(UnaryOpInstruction inst) {
@@ -779,11 +783,11 @@ public class JasminGenerator {
     private String generateOpConditional(OpCondInstruction inst) {
         StringBuilder code = new StringBuilder();
         Instruction condition = inst.getCondition();
-        code.append(generators.apply(condition));
 
         String ifType = null;
 
         if (condition instanceof BinaryOpInstruction binaryOp) {
+            code.append(generators.apply(condition));
             OperationType operation = binaryOp.getOperation().getOpType();
 
             ifType = switch (operation) {
@@ -796,7 +800,7 @@ public class JasminGenerator {
                 default -> throw new NotImplementedException(operation);
             };
         } else if (condition instanceof UnaryOpInstruction unaryOp) {
-            ifType = "ifne ";
+            ifType = "ifeq ";
         }
 
         assert ifType != null;
