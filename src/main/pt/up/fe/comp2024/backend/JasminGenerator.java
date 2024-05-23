@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.specs.comp.ollir.ElementType.*;
+import static org.specs.comp.ollir.OperationType.*;
 
 /**
  * Generates Jasmin code from an OllirResult.
@@ -53,7 +54,10 @@ public class JasminGenerator {
         generators.put(LiteralElement.class, this::generateLiteral);
         generators.put(Operand.class, this::getOperand);
         generators.put(BinaryOpInstruction.class, this::generateBinaryOp);
+        generators.put(UnaryOpInstruction.class, this::generateUnaryOp);
         generators.put(ReturnInstruction.class, this::generateReturn);
+        generators.put(CondBranchInstruction.class, this::generateConditional);
+        generators.put(GotoInstruction.class, this::generateGoto);
         generators.put(Instruction.class, this::generateInstruction);
     }
 
@@ -241,9 +245,16 @@ public class JasminGenerator {
         currentMethod = method;
 
         var code = new StringBuilder(getMethodHeader(method));
+        updateLocal(method.getParams().size());
         var instructions = new StringBuilder();
 
         for (var inst : method.getInstructions()) {
+            var labels = method.getLabels(inst);
+
+            for (var label : labels) {
+                instructions.append(label).append(":\n");
+            }
+
             var instCode = StringLines.getLines(generators.apply(inst)).stream()
                     .collect(Collectors.joining(NL, "", NL));
 
@@ -263,6 +274,7 @@ public class JasminGenerator {
         // unset method
         currentMethod = null;
         this.maxStack = 0;
+        this.maxLocals = 0;
 
         return code.toString();
     }
@@ -633,7 +645,7 @@ public class JasminGenerator {
         var op = switch (binaryOp.getOperation().getOpType()) {
             case ADD -> "iadd";
             case MUL -> "imul";
-            case SUB -> "isub";
+            case SUB, LTE, LTH, GTH, GTE, EQ, NEQ -> "isub";
             case DIV -> "idiv";
             case XOR -> "ixor";
             case AND, ANDB, NOTB -> "iand";
@@ -648,20 +660,80 @@ public class JasminGenerator {
         return code.toString();
     }
 
+    private String generateUnaryOp(UnaryOpInstruction inst) {
+        var operand = inst.getOperand();
+        String operandCode = generators.apply(operand);
+        updateStack(1);     // +1 for iconst_1
+        updateStack(-1);    // -2 + 1 for ixor
+        return operandCode + "iconst_1\nixor\n";
+    }
+
     private String generateReturn(ReturnInstruction inst) {
         var type = inst.getReturnType().getTypeOfElement();
 
-        String ret =  switch (type) {
+        String ret = switch (type) {
             case INT32, BOOLEAN -> generators.apply(inst.getOperand()) + "ireturn" + NL;
             case STRING, ARRAYREF, OBJECTREF -> getOperand((Operand) inst.getOperand()) + "areturn" + NL;
             case VOID -> "return" + NL;
             default -> throw new NotImplementedException(type);
         };
-        
+
         if (type != VOID) {
             updateStack(-1);
         }
 
         return ret;
+    }
+
+    private String generateConditional(CondBranchInstruction inst) {
+        if (inst instanceof OpCondInstruction opCondInstruction) {
+            return generateOpConditional(opCondInstruction);
+        }
+        return generateSingleOpConditional((SingleOpCondInstruction) inst);
+    }
+
+    private String generateOpConditional(OpCondInstruction inst) {
+        StringBuilder code = new StringBuilder();
+        Instruction condition = inst.getCondition();
+        code.append(generators.apply(condition));
+
+        String ifType = null;
+
+        if (condition instanceof BinaryOpInstruction binaryOp) {
+            OperationType operation = binaryOp.getOperation().getOpType();
+
+            ifType = switch (operation) {
+                case LTE -> "ifle ";
+                case LTH -> "iflt ";
+                case GTE -> "ifge ";
+                case GTH -> "ifgt ";
+                case EQ -> "ifeq ";
+                case NEQ -> "ifne ";
+                default -> throw new NotImplementedException(operation);
+            };
+        } else if (condition instanceof UnaryOpInstruction unaryOp) {
+            ifType = "ifne ";
+        }
+
+        assert ifType != null;
+        updateStack(-1);
+        code.append(ifType).append(inst.getLabel());
+        return code.toString();
+    }
+
+    private String generateSingleOpConditional(SingleOpCondInstruction inst) {
+        StringBuilder code = new StringBuilder();
+        Instruction condition = inst.getCondition();
+        code.append(generators.apply(condition));
+        updateStack(-1);
+        code.append("ifne ").append(inst.getLabel());
+
+        return code.toString();
+    }
+
+    private String generateGoto(GotoInstruction inst) {
+        String label = inst.getLabel();
+
+        return "goto " + label;
     }
 }
