@@ -319,10 +319,10 @@ public class JasminGenerator {
         int vr = currentMethod.getVarTable().get(instruction.getObject().getName()).getVirtualReg();
         updateLocal(vr);
 
+        String aload = vr <= 3 ? "aload_" : "aload ";
+
         // push object onto the stack
-        code.append("aload ");
-        code.append(vr);
-        code.append(NL);
+        code.append(aload).append(vr).append(NL);
 
         updateStack(1);
 
@@ -345,10 +345,10 @@ public class JasminGenerator {
         int vr = currentMethod.getVarTable().get(instruction.getObject().getName()).getVirtualReg();
         updateLocal(vr);
 
+        String aload = vr <= 3 ? "aload_" : "aload ";
+
         // push object onto the stack
-        code.append("aload ");
-        code.append(vr);
-        code.append(NL);
+        code.append(aload).append(vr).append(NL);
         updateStack(1);
 
         // push value onto the stack
@@ -397,8 +397,9 @@ public class JasminGenerator {
         Operand caller = (Operand) instruction.getCaller();
         int vr = currentMethod.getVarTable().get(caller.getName()).getVirtualReg();
 
+        String aload = vr <= 3 ? "aload_" : "aload ";
         // push array to the stack
-        code.append("aload ").append(vr).append(NL);
+        code.append(aload).append(vr).append(NL);
         // get array length
         code.append("arraylength\n");
 
@@ -544,7 +545,9 @@ public class JasminGenerator {
         updateLocal(reg);
 
         StringBuilder code = new StringBuilder();
-        code.append("aload ").append(reg).append(NL);
+
+        String aload = reg <= 3 ? "aload_" : "aload ";
+        code.append(aload).append(reg).append(NL);
         updateStack(1);
 
         var offset = operand.getIndexOperands().get(0);
@@ -568,7 +571,14 @@ public class JasminGenerator {
 
     private String generateLiteral(LiteralElement literal) {
         updateStack(1);
-        return "ldc " + literal.getLiteral() + NL;
+        int n = Integer.parseInt(literal.getLiteral());
+
+        if (n == -1) return "iconst_m1" + NL;
+        if (n >= 0 && n <= 5) return "iconst_" + n + NL;
+        if (n >= Byte.MIN_VALUE && n <= Byte.MAX_VALUE) return "bipush " + n + NL;
+        if (n >= Short.MIN_VALUE && n <= Short.MAX_VALUE) return "sipush " + n + NL;
+
+        return "ldc " + n + NL;
     }
 
     private String getOperand(Element operand) {
@@ -584,12 +594,14 @@ public class JasminGenerator {
     private String getArrayOperand(ArrayOperand operand) {
         var variable = currentMethod.getVarTable().get(operand.getName());
         var reg = variable.getVirtualReg();
+        StringBuilder code = new StringBuilder();
 
         updateLocal(reg);
         updateStack(1);
 
-        StringBuilder code = new StringBuilder();
-        code.append("aload ").append(reg).append(NL);
+        String aload = reg <= 3 ? "aload_" : "aload ";
+
+        code.append(aload).append(reg).append(NL);
         code.append(getOperand(operand.getIndexOperands().get(0)));
         code.append("iaload\n");
 
@@ -615,8 +627,14 @@ public class JasminGenerator {
         updateStack(1);
 
         return switch (operand.getType().getTypeOfElement()) {
-            case INT32, BOOLEAN -> "iload " + reg + NL;
-            case STRING, ARRAYREF, OBJECTREF, THIS -> "aload " + reg + NL;
+            case INT32, BOOLEAN -> {
+                String iload = reg <= 3 ? "iload_" : "iload ";
+                yield iload + reg + NL;
+            }
+            case STRING, ARRAYREF, OBJECTREF, THIS -> {
+                String aload = reg <= 3 ? "aload_" : "aload ";
+                yield aload + reg + NL;
+            }
             default -> throw new NotImplementedException(operand.getType().getTypeOfElement());
         };
     }
@@ -628,8 +646,14 @@ public class JasminGenerator {
         updateStack(-1);
 
         return switch (operand.getType().getTypeOfElement()) {
-            case INT32, BOOLEAN -> "istore " + reg + NL;
-            case STRING, ARRAYREF, OBJECTREF -> "astore " + reg + NL;
+            case INT32, BOOLEAN -> {
+                String istore = reg <= 3 ? "istore_" : "istore ";
+                yield istore + reg + NL;
+            }
+            case STRING, ARRAYREF, OBJECTREF -> {
+                String astore = reg <= 3 ? "astore_" : "astore ";
+                yield astore + reg + NL;
+            }
             default -> throw new NotImplementedException(operand.getType().getTypeOfElement());
         };
     }
