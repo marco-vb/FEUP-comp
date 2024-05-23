@@ -35,15 +35,6 @@ public class JasminGenerator {
     private int maxStack = 0;
     private int maxLocals = 0;
 
-    private void updateStack(int inc) {
-        stack += inc;
-        maxStack = Math.max(maxStack, stack);
-    }
-
-    private void updateLocal(int vr) {
-        maxLocals = Math.max(maxLocals, vr + 1);
-    }
-
     public JasminGenerator(OllirResult ollirResult) {
         this.ollirResult = ollirResult;
 
@@ -71,6 +62,15 @@ public class JasminGenerator {
         var name = className.toString();
         name = name.substring(name.lastIndexOf("(") + 1, name.length() - 1);
         return name + "/" + field.getName();
+    }
+
+    private void updateStack(int inc) {
+        stack += inc;
+        maxStack = Math.max(maxStack, stack);
+    }
+
+    private void updateLocal(int vr) {
+        maxLocals = Math.max(maxLocals, vr + 1);
     }
 
     public List<Report> getReports() {
@@ -381,24 +381,28 @@ public class JasminGenerator {
 
     private String generateArrayLength(CallInstruction instruction) {
         var code = new StringBuilder();
-        int vr = currentMethod.getVarTable().get(instruction.getCaller().toString()).getVirtualReg();
+        Operand caller = (Operand) instruction.getCaller();
+        int vr = currentMethod.getVarTable().get(caller.getName()).getVirtualReg();
 
         // push array to the stack
-        code.append("aload ");
-        code.append(vr);
-        code.append(NL);
+        code.append("aload ").append(vr).append(NL);
+        // get array length
+        code.append("arraylength\n");
 
         updateLocal(vr);
         updateStack(1);
 
-        // get array length
-        code.append("arraylength");
-        code.append(NL);
 
         return code.toString();
     }
 
     private String generateNew(CallInstruction instruction) {
+        Type returnType = instruction.getReturnType();
+
+        if (returnType instanceof ArrayType) {
+            return generateNewArray(instruction);
+        }
+
         var code = new StringBuilder();
 
         // generate code for calling method
@@ -410,6 +414,14 @@ public class JasminGenerator {
         updateStack(1);
 
         return code.toString();
+    }
+
+    private String generateNewArray(CallInstruction instruction) {
+        Element argument = instruction.getArguments().get(0);
+        updateStack(1);
+        updateStack(-1);
+
+        return getOperand(argument) + "newarray int\n";
     }
 
     private String getInvokeVirtual(CallInstruction instruction, Type type) {
@@ -499,12 +511,40 @@ public class JasminGenerator {
     private String generateAssign(AssignInstruction assign) {
         var code = new StringBuilder();
 
-        // generate code for loading what's on the right
-        code.append(generators.apply(assign.getRhs()));
+        if ((assign.getDest()) instanceof ArrayOperand arrayOperand) {
+            code.append(generateArrayAssigned(assign, arrayOperand));
+        } else {
+            // generate code for loading what's on the right
+            code.append(generators.apply(assign.getRhs()));
 
-        // store value in the stack in destination
-        var lhs = (Operand) assign.getDest();
-        code.append(generateAssigned(lhs));
+            // store value in the stack in destination
+            var lhs = (Operand) assign.getDest();
+            code.append(generateAssigned(lhs));
+        }
+
+        return code.toString();
+    }
+
+    private String generateArrayAssigned(AssignInstruction inst, ArrayOperand operand) {
+        var variable = currentMethod.getVarTable().get(operand.getName());
+        var reg = variable.getVirtualReg();
+        updateLocal(reg);
+
+        StringBuilder code = new StringBuilder();
+        code.append("aload ").append(reg).append(NL);
+        updateStack(1);
+
+        var offset = operand.getIndexOperands().get(0);
+        code.append(getOperand(offset));
+        // stack updated in getOperand
+
+        // generate code for loading what's on the right
+        code.append(generators.apply(inst.getRhs()));
+        // stack updated in generator
+
+        code.append("iastore\n");
+
+        updateStack(-3);
 
         return code.toString();
     }
@@ -519,14 +559,37 @@ public class JasminGenerator {
     }
 
     private String getOperand(Element operand) {
-        if (operand instanceof Operand) {
-            return getOperand((Operand) operand);
-        } else {
-            return generators.apply(operand);
+        if (operand instanceof ArrayOperand op) {
+            return getArrayOperand(op);
         }
+        if (operand instanceof Operand op) {
+            return getOperand(op);
+        }
+        return generators.apply(operand);
+    }
+
+    private String getArrayOperand(ArrayOperand operand) {
+        var variable = currentMethod.getVarTable().get(operand.getName());
+        var reg = variable.getVirtualReg();
+
+        updateLocal(reg);
+        updateStack(1);
+
+        StringBuilder code = new StringBuilder();
+        code.append("aload ").append(reg).append(NL);
+        code.append(getOperand(operand.getIndexOperands().get(0)));
+        code.append("iaload\n");
+
+        updateStack(-1);
+
+        return code.toString();
     }
 
     private String getOperand(Operand operand) {
+        if (operand instanceof ArrayOperand op) {
+            return getArrayOperand(op);
+        }
+
         var variable = currentMethod.getVarTable().get(operand.getName());
 
         if (variable == null) {
@@ -564,8 +627,6 @@ public class JasminGenerator {
         // load values on the left and on the right
         code.append(generators.apply(binaryOp.getLeftOperand()));
         code.append(generators.apply(binaryOp.getRightOperand()));
-
-        updateStack(2);
 
         // apply operation
         var op = switch (binaryOp.getOperation().getOpType()) {
