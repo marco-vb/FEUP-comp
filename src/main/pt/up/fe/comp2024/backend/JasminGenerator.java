@@ -32,6 +32,17 @@ public class JasminGenerator {
     String code;
     Method currentMethod;
     private int stack = 0;
+    private int maxStack = 0;
+    private int maxLocals = 0;
+
+    private void updateStack(int inc) {
+        stack += inc;
+        maxStack = Math.max(maxStack, stack);
+    }
+
+    private void updateLocal(int vr) {
+        maxLocals = Math.max(maxLocals, vr + 1);
+    }
 
     public JasminGenerator(OllirResult ollirResult) {
         this.ollirResult = ollirResult;
@@ -230,23 +241,23 @@ public class JasminGenerator {
         currentMethod = method;
 
         var code = new StringBuilder(getMethodHeader(method));
-
-        // Add limits
-        code.append(".limit stack 99").append(NL);
-        code.append(".limit locals 99").append(NL);
+        var instructions = new StringBuilder();
 
         for (var inst : method.getInstructions()) {
             var instCode = StringLines.getLines(generators.apply(inst)).stream()
                     .collect(Collectors.joining(NL, "", NL));
 
-            code.append(instCode);
+            instructions.append(instCode);
 
             while (this.stack > 0) {
-                code.append("pop\n");
+                instructions.append("pop\n");
                 this.stack--;
             }
         }
 
+        code.append(".limit stack ").append(maxStack).append(NL);
+        code.append(".limit locals ").append(maxLocals).append(NL);
+        code.append(instructions.toString());
         code.append(".end method");
 
         // unset method
@@ -292,10 +303,15 @@ public class JasminGenerator {
     private String generateGetField(GetFieldInstruction instruction) {
         var code = new StringBuilder();
 
+        int vr = currentMethod.getVarTable().get(instruction.getObject().getName()).getVirtualReg();
+        updateLocal(vr);
+
         // push object onto the stack
         code.append("aload ");
-        code.append(currentMethod.getVarTable().get(instruction.getObject().getName()).getVirtualReg());
+        code.append(vr);
         code.append(NL);
+
+        updateStack(1);
 
         // get value from the field
         code.append("getfield ");
@@ -313,9 +329,12 @@ public class JasminGenerator {
     private String generatePutField(PutFieldInstruction instruction) {
         var code = new StringBuilder();
 
+        int vr = currentMethod.getVarTable().get(instruction.getObject().getName()).getVirtualReg();
+        updateLocal(vr);
+
         // push object onto the stack
         code.append("aload ");
-        code.append(currentMethod.getVarTable().get(instruction.getObject().getName()).getVirtualReg());
+        code.append(vr);
         code.append(NL);
 
         // push value onto the stack
@@ -327,10 +346,12 @@ public class JasminGenerator {
         code.append(fieldClassAndName(instruction.getObject(), instruction.getField()));
         code.append(" ");
 
+        updateStack(2);
+
         // Add return type
         var returnType = generateParam(instruction.getValue().getType());
         code.append(returnType).append(NL);
-        this.stack -= 2;
+        updateStack(-2);
 
         return code.toString();
     }
@@ -353,18 +374,22 @@ public class JasminGenerator {
         var caller = instruction.getCaller().toString();
         var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
         code.append("ldc ").append(name).append(NL);
-        this.stack++;
+        updateStack(1);
 
         return code.toString();
     }
 
     private String generateArrayLength(CallInstruction instruction) {
         var code = new StringBuilder();
+        int vr = currentMethod.getVarTable().get(instruction.getCaller().toString()).getVirtualReg();
 
         // push array to the stack
         code.append("aload ");
-        code.append(currentMethod.getVarTable().get(instruction.getCaller().toString()).getVirtualReg());
+        code.append(vr);
         code.append(NL);
+
+        updateLocal(vr);
+        updateStack(1);
 
         // get array length
         code.append("arraylength");
@@ -381,7 +406,8 @@ public class JasminGenerator {
         var name = caller.substring(caller.lastIndexOf("(") + 1, caller.length() - 1);
         name = importFullNames.getOrDefault(name, name);
         code.append("new ").append(name).append(NL);
-        this.stack++;
+
+        updateStack(1);
 
         return code.toString();
     }
@@ -431,21 +457,23 @@ public class JasminGenerator {
         Operand caller = (Operand) instruction.getCaller();
         code.append(getOperand(caller));
 
+        int numArgs = instruction.getArguments().size();
         // generate code for loading arguments
         for (var arg : instruction.getArguments()) {
             code.append(getOperand(arg));
-            this.stack--;
         }
+
+        updateStack(-numArgs);
 
         switch (instruction.getInvocationType()) {
             case invokestatic -> code.append(getInvokeStatic(instruction, caller.getName()));
             case invokespecial -> {
                 code.append(getInvokeSpecial(caller.getType()));
-                this.stack--;
+                updateStack(-1);
             }
             case invokevirtual -> {
                 code.append(getInvokeVirtual(instruction, caller.getType()));
-                this.stack--;
+                updateStack(-1);
             }
             default -> throw new NotImplementedException(instruction.getInvocationType());
         }
@@ -462,7 +490,7 @@ public class JasminGenerator {
         code.append(NL);
 
         if (!returnType.equals("V")) {
-            this.stack++;
+            updateStack(1);
         }
 
         return code.toString();
@@ -486,7 +514,7 @@ public class JasminGenerator {
     }
 
     private String generateLiteral(LiteralElement literal) {
-        this.stack++;
+        updateStack(1);
         return "ldc " + literal.getLiteral() + NL;
     }
 
@@ -507,7 +535,8 @@ public class JasminGenerator {
 
         var reg = variable.getVirtualReg();
 
-        this.stack++;
+        updateLocal(reg);
+        updateStack(1);
 
         return switch (operand.getType().getTypeOfElement()) {
             case INT32, BOOLEAN -> "iload " + reg + NL;
@@ -519,7 +548,8 @@ public class JasminGenerator {
     private String generateAssigned(Operand operand) {
         var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
 
-        this.stack--;
+        updateLocal(reg);
+        updateStack(-1);
 
         return switch (operand.getType().getTypeOfElement()) {
             case INT32, BOOLEAN -> "istore " + reg + NL;
@@ -535,6 +565,8 @@ public class JasminGenerator {
         code.append(generators.apply(binaryOp.getLeftOperand()));
         code.append(generators.apply(binaryOp.getRightOperand()));
 
+        updateStack(2);
+
         // apply operation
         var op = switch (binaryOp.getOperation().getOpType()) {
             case ADD -> "iadd";
@@ -549,7 +581,7 @@ public class JasminGenerator {
 
         code.append(op).append(NL);
 
-        this.stack--;
+        updateStack(-1);
 
         return code.toString();
     }
@@ -558,7 +590,7 @@ public class JasminGenerator {
         var type = inst.getReturnType().getTypeOfElement();
 
         if (type != VOID) {
-            this.stack--;
+            updateStack(-1);
         }
 
         return switch (type) {
