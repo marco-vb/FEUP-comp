@@ -8,6 +8,7 @@ import pt.up.fe.specs.util.classmap.FunctionClassMap;
 import pt.up.fe.specs.util.exceptions.NotImplementedException;
 import pt.up.fe.specs.util.utilities.StringLines;
 
+import java.rmi.server.ExportException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -70,6 +71,7 @@ public class JasminGenerator {
 
     private void updateStack(int inc) {
         stack += inc;
+        if (stack < 0) System.out.println("ERROR in stack size");
         maxStack = Math.max(maxStack, stack);
     }
 
@@ -659,6 +661,10 @@ public class JasminGenerator {
     }
 
     private String generateBinaryOp(BinaryOpInstruction binaryOp) {
+        if (canBeIncInst(binaryOp)) {
+            return generateIIncInst(binaryOp);
+        }
+
         var code = new StringBuilder();
 
         // load values on the left and on the right
@@ -682,6 +688,60 @@ public class JasminGenerator {
         updateStack(-1);
 
         return code.toString();
+    }
+
+    private boolean canBeIncInst(BinaryOpInstruction inst) {
+        if (!(inst.getOperation().getOpType().equals(ADD) || inst.getOperation().getOpType().equals(SUB))) {
+            return false;
+        }
+        
+        boolean leftLiteral = inst.getLeftOperand().isLiteral();
+        boolean rightLiteral = inst.getRightOperand().isLiteral();
+
+        boolean leftInt = inst.getLeftOperand().getType().getTypeOfElement().equals(INT32);
+        boolean rightInt = inst.getRightOperand().getType().getTypeOfElement().equals(INT32);
+
+        if (leftLiteral) {
+            LiteralElement left = (LiteralElement) inst.getLeftOperand();
+            int val = Integer.parseInt(left.getLiteral());
+            if (val < Byte.MIN_VALUE || val > Byte.MAX_VALUE) return false;
+        }
+
+        if (rightLiteral) {
+            LiteralElement right = (LiteralElement) inst.getRightOperand();
+            int val = Integer.parseInt(right.getLiteral());
+            if (val < Byte.MIN_VALUE || val > Byte.MAX_VALUE) return false;
+        }
+
+        return leftInt && rightInt && (leftLiteral ^ rightLiteral);
+    }
+
+    private String generateIIncInst(BinaryOpInstruction inst) {
+        if (inst.getLeftOperand().isLiteral()) {
+            Operand operand = (Operand) inst.getRightOperand();
+            var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
+            var left = (LiteralElement) inst.getLeftOperand();
+            var val = Integer.parseInt(left.getLiteral());
+
+            if (inst.getOperation().getOpType().equals(SUB)) val = -val;
+
+            String inc = "iinc " + reg + " " + val + NL;
+            String iload = reg <= 3 ? "iload_" : "iload ";
+            updateLocal(reg);
+            updateStack(1);
+            return inc + iload + reg + NL;
+        }
+        Operand operand = (Operand) inst.getLeftOperand();
+        var reg = currentMethod.getVarTable().get(operand.getName()).getVirtualReg();
+        var right = (LiteralElement) inst.getRightOperand();
+        var val = Integer.parseInt(right.getLiteral());
+        if (inst.getOperation().getOpType().equals(SUB)) val = -val;
+
+        String inc = "iinc " + reg + " " + val + NL;
+        String iload = reg <= 3 ? "iload_" : "iload ";
+        updateLocal(reg);
+        updateStack(1);
+        return inc + iload + reg + NL;
     }
 
     private String generateUnaryOp(UnaryOpInstruction inst) {
