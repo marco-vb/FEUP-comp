@@ -1,5 +1,7 @@
 package pt.up.fe.comp2024.optimization;
 
+import org.antlr.runtime.tree.Tree;
+import org.specs.comp.ollir.*;
 import pt.up.fe.comp.jmm.analysis.JmmSemanticsResult;
 import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
@@ -15,13 +17,13 @@ import pt.up.fe.comp2024.ast.TypeUtils;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.*;
 
 public class JmmOptimizationImpl implements JmmOptimization {
 
     ArrayList<Kind> assignments;
+
+    private boolean optRegs = false;
 
     public JmmOptimizationImpl() {
         assignments = new ArrayList<>();
@@ -41,10 +43,201 @@ public class JmmOptimizationImpl implements JmmOptimization {
 
     @Override
     public OllirResult optimize(OllirResult ollirResult) {
+        var config = ollirResult.getConfig();
+        int n = CompilerConfig.getRegisterAllocation(config);
 
-        //TODO: Do your OLLIR-based optimizations here
+        if (n == -1) {
+            return ollirResult;
+        } else {
+            optimizeRegisters(ollirResult);
+            int mx = 1;
 
+            for (var method : ollirResult.getOllirClass().getMethods()) {
+                var VT = method.getVarTable();
+                for (var reg : VT.keySet()) {
+                    int val = VT.get(reg).getVirtualReg();
+                    mx = Math.max(mx, val);
+                }
+            }
+
+            if (mx > n) {
+                // error
+            }
+        }
         return ollirResult;
+    }
+
+    private void optimizeRegisters(OllirResult OR) {
+        OR.getOllirClass().buildCFGs();
+        for (var method : OR.getOllirClass().getMethods()) {
+            optMethodReg(method);
+        }
+    }
+
+    private void optMethodReg(Method m) {
+        var insts = m.getInstructions();
+        var sz = insts.size();
+
+        Set<String>[] IN = new Set[sz];
+        Set<String>[] OUT = new Set[sz];
+        Set<String>[] DEF = new Set[sz];
+
+        for (int i = 0; i < sz; i++) {
+            IN[i] = new TreeSet<>();
+            OUT[i] = new TreeSet<>();
+            DEF[i] = defs(m.getInstr(i));
+        }
+
+        // live-ins and live-outs algorithm
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (int i = 0; i < sz; i++) {
+                var inst = m.getInstr(i);
+                TreeSet<String> newIn = new TreeSet<>(OUT[i]);
+                newIn.removeAll(DEF[i]);
+                newIn.addAll(uses(inst));
+
+                if (!equalSets(newIn, IN[i])) {
+                    changed = true;
+                }
+
+                TreeSet<String> newOut = new TreeSet<>();
+
+                for (var suc : inst.getSuccessors()) {
+                    int id = suc.getId() - 1;
+                    if (id < 0 || id >= sz) continue;
+                    newOut.addAll(IN[id]);
+                }
+
+                if (!equalSets(newOut, OUT[i])) {
+                    changed = true;
+                }
+
+                IN[i] = newIn;
+                OUT[i] = newOut;
+            }
+        }
+
+        // register allocation
+        int reg = 1 + m.getParams().size();
+        var nodes = m.getVarTable().keySet();
+        nodes.remove("this");
+
+        for (var param : m.getParams()) {
+            nodes.remove(((Operand) param).getName());
+        }
+
+        HashMap<String, Integer> colors = new HashMap<>();
+        for (var key : nodes) colors.put(key, -1);
+
+        HashMap<String, Set<String>> edges = new HashMap<>();
+        HashMap<String, Set<String>> persistent = new HashMap<>();
+
+        for (var node : nodes) {
+            edges.put(node, new TreeSet<>());
+            persistent.put(node, new TreeSet<>());
+        }
+
+        for (int i = 0; i < sz; i++) {
+            TreeSet<String> defout = new TreeSet<>(DEF[i]);
+            defout.addAll(OUT[i]);
+
+            for (var a : defout) {
+                for (var b : defout) {
+                    if (a.equals(b)) continue;
+                    edges.get(a).add(b);
+                    edges.get(b).add(a);
+                    persistent.get(a).add(b);
+                    persistent.get(b).add(a);
+                }
+            }
+        }
+
+        Stack<String> st = new Stack<>();
+        int k = 1;
+
+        while (!nodes.isEmpty()) {
+            boolean found = false;
+            TreeSet<String> rm = new TreeSet<>();
+            for (var node : nodes) {
+                if (!edges.containsKey(node)) continue;
+                if (edges.get(node).size() < k) {
+                    found = true;
+                    st.add(node);
+                    rm.add(node);
+                    for (var al : edges.keySet()) {
+                        edges.get(al).remove(node);
+                    }
+                }
+            }
+            for (var el : rm) nodes.remove(el);
+            if (!found) k++;
+        }
+
+        edges = persistent;
+
+        while (!st.isEmpty()) {
+            String color = st.getLast();
+            st.pop();
+            int paint = reg;
+
+            TreeSet<Integer> used = new TreeSet<>();
+            for (var neigh : edges.get(color)) {
+                int c = colors.get(neigh);
+                if (c != -1) used.add(c);
+            }
+
+            while (used.contains(paint)) paint++;
+            colors.put(color, paint);
+        }
+
+        var VT = m.getVarTable();
+
+        for (var color : colors.keySet()) {
+            VT.put(color, new Descriptor(colors.get(color)));
+        }
+
+        int x = 1;
+    }
+
+    private boolean equalSets(Set<String> a, Set<String> b) {
+        if (a.size() != b.size()) return false;
+        for (var s : a) {
+            if (!b.contains(s)) return false;
+        }
+        return true;
+    }
+
+    private Set<String> uses(Instruction inst) {
+        Set<String> ret = new TreeSet<>();
+        if (inst instanceof AssignInstruction ai) {
+            if (ai.getRhs() instanceof BinaryOpInstruction bi) {
+                if (bi.getLeftOperand() instanceof Operand lop) {
+                    ret.add(lop.getName());
+                }
+                if (bi.getRightOperand() instanceof Operand rop) {
+                    ret.add(rop.getName());
+                }
+            } else if (ai.getRhs() instanceof SingleOpInstruction si) {
+                if (si.getSingleOperand() instanceof Operand op) {
+                    ret.add(op.getName());
+                }
+            }
+        } else if (inst instanceof GetFieldInstruction gf) {
+            ret.add(gf.getField().getName());
+        }
+        return ret;
+    }
+
+    private Set<String> defs(Instruction inst) {
+        Set<String> ret = new TreeSet<>();
+        if (inst instanceof AssignInstruction ai) {
+            ret.add(((Operand) ai.getDest()).getName());
+        } else if (inst instanceof PutFieldInstruction pf) {
+            ret.add(pf.getField().getName());
+        }
+        return ret;
     }
 
     @Override
