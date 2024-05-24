@@ -60,7 +60,7 @@ public class JmmOptimizationImpl implements JmmOptimization {
                     mx = Math.max(mx, val);
                 }
             }
-            
+
             if (mx + 1 > n) {
                 var reports = ollirResult.getReports();
                 reports.add(new Report(

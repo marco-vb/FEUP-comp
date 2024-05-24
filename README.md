@@ -8,10 +8,12 @@
 
 ## Work Distribution
 
-- Bianca - 33.33 %
-- Duarte - 33.33 %
-- Marco - 33.33 %
+- Bianca - 33 %
+- Duarte - 33 %
+- Marco - 33 %
 
 ## Self-Assessment
 
-- We think our project deserves a 19 out of 20.
+We were able to implement everything asked for in the project, although a small set
+of things did not end up perfect, as we missed a tiny percentage of the private 
+tests for the optimizations part. Overall, we think the project is quite good.
