@@ -65,6 +65,21 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         return new OllirExprResult(code, computation);
     }
 
+    private boolean trivialBinaryExpr(JmmNode node) {
+        if (!node.getParent().isInstance(ASSIGN_STMT)) {
+            return false;
+        }
+
+        var leftIL = node.getChild(0).isInstance(INTEGER_LITERAL);
+        var rightIL = node.getChild(1).isInstance(INTEGER_LITERAL);
+        var leftBL = node.getChild(0).isInstance(BOOLEAN_LITERAL);
+        var rightBL = node.getChild(1).isInstance(BOOLEAN_LITERAL);
+        var leftV = node.getChild(0).isInstance(VAR_REF_EXPR);
+        var rightV = node.getChild(1).isInstance(VAR_REF_EXPR);
+
+        return (leftIL || leftBL || leftV) &&  (rightIL || rightBL || rightV);
+    }
+
     private OllirExprResult visitBinaryExpr(JmmNode node, Void u) {
         if (node.get("op").equals("&&")) {
             return visitShortCutAndExpr(node);
@@ -73,11 +88,19 @@ public class OllirExprGeneratorVisitor extends AJmmVisitor<Void, OllirExprResult
         StringBuilder computation = new StringBuilder();
         OllirExprResult left = visit(node.getChild(0));
         OllirExprResult right = visit(node.getChild(1));
+        String type = toOllirType(TypeUtils.getExprType(node, table));
+
+        if (trivialBinaryExpr(node)) {
+            computation.append(left.getCode()).append(" ");
+            computation.append(node.get("op")).append(type).append(" ");
+            computation.append(right.getCode()).append(END_STMT);
+
+            return new OllirExprResult(computation.toString());
+        }
 
         computation.append(left.getComputation());
         computation.append(right.getComputation());
 
-        String type = toOllirType(TypeUtils.getExprType(node, table));
         String temp = OptUtils.getTemp("tmp") + type;
         computation.append(temp).append(" :=").append(type).append(" ");
         computation.append(left.getCode()).append(" ");
