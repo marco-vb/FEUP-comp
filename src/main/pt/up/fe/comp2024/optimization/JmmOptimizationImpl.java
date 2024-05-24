@@ -1,5 +1,7 @@
 package pt.up.fe.comp2024.optimization;
 
+import org.antlr.runtime.tree.Tree;
+import org.specs.comp.ollir.*;
 import pt.up.fe.comp.jmm.analysis.JmmSemanticsResult;
 import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
@@ -15,13 +17,13 @@ import pt.up.fe.comp2024.ast.TypeUtils;
 
 import static pt.up.fe.comp2024.ast.Kind.*;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.*;
 
 public class JmmOptimizationImpl implements JmmOptimization {
 
     ArrayList<Kind> assignments;
+
+    private boolean optRegs = false;
 
     public JmmOptimizationImpl() {
         assignments = new ArrayList<>();
@@ -41,10 +43,110 @@ public class JmmOptimizationImpl implements JmmOptimization {
 
     @Override
     public OllirResult optimize(OllirResult ollirResult) {
+        var config = ollirResult.getConfig();
+        int n = CompilerConfig.getRegisterAllocation(config);
 
-        //TODO: Do your OLLIR-based optimizations here
-
+        if (n == -1) {
+            return ollirResult;
+        } else {
+            optimizeRegisters(ollirResult);
+            // error if max reg > n;
+        }
         return ollirResult;
+    }
+
+    private void optimizeRegisters(OllirResult OR) {
+        OR.getOllirClass().buildCFGs();
+        for (var method : OR.getOllirClass().getMethods()) {
+            optMethodReg(method);
+        }
+    }
+
+    private void optMethodReg(Method m) {
+        var insts = m.getInstructions();
+        var sz = insts.size();
+
+        Set<String>[] IN = new Set[sz];
+        Set<String>[] OUT = new Set[sz];
+
+        for (int i = 0; i < sz; i++) {
+            IN[i] = new TreeSet<>();
+            OUT[i] = new TreeSet<>();
+        }
+
+        // live-ins and live-outs algorithm
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (int i = 0; i < sz; i++) {
+                var inst = m.getInstr(i);
+                TreeSet<String> newIn = new TreeSet<>(OUT[i]);
+                newIn.removeAll(defs(inst));
+                newIn.addAll(uses(inst));
+
+                if (!equalSets(newIn, IN[i])) {
+                    changed = true;
+                }
+
+                TreeSet<String> newOut = new TreeSet<>();
+
+                for (var suc : inst.getSuccessors()) {
+                    int id = suc.getId() - 1;
+                    if (id < 0 || id >= sz) continue;
+                    newOut.addAll(IN[id]);
+                }
+
+                if (!equalSets(newOut, OUT[i])) {
+                    changed = true;
+                }
+
+                IN[i] = newIn;
+                OUT[i] = newOut;
+            }
+        }
+
+        // register allocation
+        int maxReg = 0;
+
+    }
+
+    private boolean equalSets(Set<String> a, Set<String> b) {
+        if (a.size() != b.size()) return false;
+        for (var s : a) {
+            if (!b.contains(s)) return false;
+        }
+        return true;
+    }
+
+    private Set<String> uses(Instruction inst) {
+        Set<String> ret = new TreeSet<>();
+        if (inst instanceof AssignInstruction ai) {
+            if (ai.getRhs() instanceof BinaryOpInstruction bi) {
+                if (bi.getLeftOperand() instanceof Operand lop) {
+                    ret.add(lop.getName());
+                }
+                if (bi.getRightOperand() instanceof Operand rop) {
+                    ret.add(rop.getName());
+                }
+            } else if (ai.getRhs() instanceof SingleOpInstruction si) {
+                if (si.getSingleOperand() instanceof Operand op) {
+                    ret.add(op.getName());
+                }
+            }
+        } else if (inst instanceof GetFieldInstruction gf) {
+            ret.add(gf.getField().getName());
+        }
+        return ret;
+    }
+
+    private Set<String> defs(Instruction inst) {
+        Set<String> ret = new TreeSet<>();
+        if (inst instanceof AssignInstruction ai) {
+            ret.add(((Operand) ai.getDest()).getName());
+        } else if (inst instanceof PutFieldInstruction pf) {
+            ret.add(pf.getField().getName());
+        }
+        return ret;
     }
 
     @Override
