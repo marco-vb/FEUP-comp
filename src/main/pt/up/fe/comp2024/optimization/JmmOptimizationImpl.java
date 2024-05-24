@@ -50,7 +50,19 @@ public class JmmOptimizationImpl implements JmmOptimization {
             return ollirResult;
         } else {
             optimizeRegisters(ollirResult);
-            // error if max reg > n;
+            int mx = 1;
+
+            for (var method : ollirResult.getOllirClass().getMethods()) {
+                var VT = method.getVarTable();
+                for (var reg : VT.keySet()) {
+                    int val = VT.get(reg).getVirtualReg();
+                    mx = Math.max(mx, val);
+                }
+            }
+
+            if (mx > n) {
+                // error
+            }
         }
         return ollirResult;
     }
@@ -68,10 +80,12 @@ public class JmmOptimizationImpl implements JmmOptimization {
 
         Set<String>[] IN = new Set[sz];
         Set<String>[] OUT = new Set[sz];
+        Set<String>[] DEF = new Set[sz];
 
         for (int i = 0; i < sz; i++) {
             IN[i] = new TreeSet<>();
             OUT[i] = new TreeSet<>();
+            DEF[i] = defs(m.getInstr(i));
         }
 
         // live-ins and live-outs algorithm
@@ -81,7 +95,7 @@ public class JmmOptimizationImpl implements JmmOptimization {
             for (int i = 0; i < sz; i++) {
                 var inst = m.getInstr(i);
                 TreeSet<String> newIn = new TreeSet<>(OUT[i]);
-                newIn.removeAll(defs(inst));
+                newIn.removeAll(DEF[i]);
                 newIn.addAll(uses(inst));
 
                 if (!equalSets(newIn, IN[i])) {
@@ -106,8 +120,85 @@ public class JmmOptimizationImpl implements JmmOptimization {
         }
 
         // register allocation
-        int maxReg = 0;
+        int reg = 1 + m.getParams().size();
+        var nodes = m.getVarTable().keySet();
+        nodes.remove("this");
 
+        for (var param : m.getParams()) {
+            nodes.remove(((Operand) param).getName());
+        }
+
+        HashMap<String, Integer> colors = new HashMap<>();
+        for (var key : nodes) colors.put(key, -1);
+
+        HashMap<String, Set<String>> edges = new HashMap<>();
+        HashMap<String, Set<String>> persistent = new HashMap<>();
+
+        for (var node : nodes) {
+            edges.put(node, new TreeSet<>());
+            persistent.put(node, new TreeSet<>());
+        }
+
+        for (int i = 0; i < sz; i++) {
+            TreeSet<String> defout = new TreeSet<>(DEF[i]);
+            defout.addAll(OUT[i]);
+
+            for (var a : defout) {
+                for (var b : defout) {
+                    if (a.equals(b)) continue;
+                    edges.get(a).add(b);
+                    edges.get(b).add(a);
+                    persistent.get(a).add(b);
+                    persistent.get(b).add(a);
+                }
+            }
+        }
+
+        Stack<String> st = new Stack<>();
+        int k = 1;
+
+        while (!nodes.isEmpty()) {
+            boolean found = false;
+            TreeSet<String> rm = new TreeSet<>();
+            for (var node : nodes) {
+                if (!edges.containsKey(node)) continue;
+                if (edges.get(node).size() < k) {
+                    found = true;
+                    st.add(node);
+                    rm.add(node);
+                    for (var al : edges.keySet()) {
+                        edges.get(al).remove(node);
+                    }
+                }
+            }
+            for (var el : rm) nodes.remove(el);
+            if (!found) k++;
+        }
+
+        edges = persistent;
+
+        while (!st.isEmpty()) {
+            String color = st.getLast();
+            st.pop();
+            int paint = reg;
+
+            TreeSet<Integer> used = new TreeSet<>();
+            for (var neigh : edges.get(color)) {
+                int c = colors.get(neigh);
+                if (c != -1) used.add(c);
+            }
+
+            while (used.contains(paint)) paint++;
+            colors.put(color, paint);
+        }
+
+        var VT = m.getVarTable();
+
+        for (var color : colors.keySet()) {
+            VT.put(color, new Descriptor(colors.get(color)));
+        }
+
+        int x = 1;
     }
 
     private boolean equalSets(Set<String> a, Set<String> b) {
