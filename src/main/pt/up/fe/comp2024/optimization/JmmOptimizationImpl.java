@@ -97,9 +97,138 @@ public class JmmOptimizationImpl implements JmmOptimization {
                 ret |= addAndReplace(var, expr, integers, booleans);
             }
             if (stmt.isInstance(RETURN_STMT)) {
-                var expr = stmt.getChild(stmt.getNumChildren() - 1);
+                var expr = stmt.getChild(0);
                 ret |= tryReplace(expr, integers, booleans);
             }
+            if (stmt.isInstance(IF_ELSE_STMT)) {
+                var expr = stmt.getChild(0);
+                ret |= checkIfStmt(stmt, integers, booleans);
+                ret |= tryReplace(expr, integers, booleans);
+            }
+            if (stmt.isInstance(WHILE_STMT)) {
+                var expr = stmt.getChild(0);
+                ret |= checkWhileStmt(stmt, integers, booleans);
+                ret |= tryReplace(expr, integers, booleans);
+            }
+        }
+
+        return false;
+    }
+
+    private boolean checkWhileStmt(JmmNode stmt, HashMap<String, Integer> integers, HashMap<String, Boolean> booleans) {
+        boolean ret = false;
+        var expr = stmt.getChild(0);
+        var body = stmt.getChild(1);
+
+        for (var key : integers.keySet()) {
+            boolean updated = varUpdated(key, body);
+            if (!updated) {
+                for (var child : body.getChildren()) {
+                    HashMap<String, Integer> mi = new HashMap<>();
+                    mi.put(key, integers.get(key));
+                    HashMap<String, Boolean> mb = new HashMap<>();
+                    ret |= tryReplace(child, mi, mb);
+                }
+            } else {
+                integers.remove(key);
+            }
+        }
+
+        for (var key : booleans.keySet()) {
+            boolean updated = varUpdated(key, body);
+            if (!updated) {
+                for (var child : body.getChildren()) {
+                    HashMap<String, Boolean> mb = new HashMap<>();
+                    mb.put(key, booleans.get(key));
+                    HashMap<String, Integer> mi = new HashMap<>();
+                    ret |= tryReplace(child, mi, mb);
+                }
+            } else {
+                booleans.remove(key);
+            }
+        }
+
+        return ret;
+    }
+
+    private boolean checkIfStmt(JmmNode stmt, HashMap<String, Integer> integers, HashMap<String, Boolean> booleans) {
+        var expr = stmt.getChild(0);
+        var ifBody = stmt.getChild(1);
+        var elseBody = stmt.getChild(2);
+
+        boolean ret = false;
+
+        for (var key : integers.keySet()) {
+            boolean updated = varUpdated(key, ifBody);
+            if (!updated) {
+                for (var child : ifBody.getChildren()) {
+                    HashMap<String, Integer> mi = new HashMap<>();
+                    mi.put(key, integers.get(key));
+                    HashMap<String, Boolean> mb = new HashMap<>();
+                    ret |= tryReplace(child, mi, mb);
+                }
+            }
+
+            updated |= varUpdated(key, elseBody);
+            if (!updated) {
+                for (var child : elseBody.getChildren()) {
+                    HashMap<String, Integer> mi = new HashMap<>();
+                    mi.put(key, integers.get(key));
+                    HashMap<String, Boolean> mb = new HashMap<>();
+                    ret |= tryReplace(child, mi, mb);
+                }
+            } else {
+                integers.remove(key);
+            }
+        }
+
+        for (var key : booleans.keySet()) {
+            boolean updated = varUpdated(key, ifBody);
+            if (!updated) {
+                for (var child : ifBody.getChildren()) {
+                    HashMap<String, Boolean> mb = new HashMap<>();
+                    mb.put(key, booleans.get(key));
+                    HashMap<String, Integer> mi = new HashMap<>();
+                    ret |= tryReplace(child, mi, mb);
+                }
+            }
+
+            updated |= varUpdated(key, elseBody);
+            if (!updated) {
+                for (var child : elseBody.getChildren()) {
+                    HashMap<String, Boolean> mb = new HashMap<>();
+                    mb.put(key, booleans.get(key));
+                    HashMap<String, Integer> mi = new HashMap<>();
+                    ret |= tryReplace(child, mi, mb);
+                }
+            } else {
+                booleans.remove(key);
+            }
+        }
+
+        return ret;
+    }
+
+    private boolean varUpdated(String key, JmmNode stmt) {
+        if (stmt.isInstance(SCOPE_STMT)) {
+            boolean ret = false;
+            for (var child : stmt.getChildren()) {
+                ret |= varUpdated(key, child);
+            }
+            return ret;
+        }
+
+        Kind kind;
+        try {
+            kind = Kind.fromString(stmt.getKind());
+        } catch (Exception ignored) {
+            return true;
+        }
+
+        if (kind.isAssign()) {
+            var name = stmt.getChild(0).get("name");
+            var expr = stmt.getChild(stmt.getNumChildren() - 1);
+            return name.equals(key) && !canEvaluate(expr);
         }
 
         return false;
@@ -120,7 +249,12 @@ public class JmmOptimizationImpl implements JmmOptimization {
             return replaceVar(expr, integers, booleans);
         }
 
-        return false;
+        boolean ret = false;
+        for (var child : expr.getChildren()) {
+            ret |= tryReplace(child, integers, booleans);
+        }
+
+        return ret;
     }
 
     private boolean replaceVar(JmmNode expr, HashMap<String, Integer> integers, HashMap<String, Boolean> booleans) {

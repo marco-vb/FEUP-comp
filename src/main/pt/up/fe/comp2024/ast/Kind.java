@@ -55,8 +55,8 @@ public enum Kind {
 
     private static final Set<Kind> ASSIGNS = Set.of(
             ASSIGN_STMT,
-            FIELD_ASSIGN_STMT,
-            ARRAY_ASSIGN_STMT
+            FIELD_ASSIGN_STMT
+//            ARRAY_ASSIGN_STMT
     );
 
     private static final Set<Kind> EXPRESSIONS = Set.of(
