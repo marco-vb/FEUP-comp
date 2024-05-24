@@ -17,6 +17,7 @@ import static pt.up.fe.comp2024.ast.Kind.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 
 public class JmmOptimizationImpl implements JmmOptimization {
 
@@ -63,6 +64,110 @@ public class JmmOptimizationImpl implements JmmOptimization {
     }
 
     private boolean propagate(JmmNode node, SymbolTable table) {
+        var cl = node.getChildren(CLASS_DECL).get(0);
+        var methods = cl.getChildren(METHOD_DECL);
+
+        boolean ret = false;
+
+        for (var method : methods) {
+            ret |= propagateInMethod(method, table);
+        }
+
+        return false;
+    }
+
+    private boolean propagateInMethod(JmmNode node, SymbolTable table) {
+        HashMap<String, Integer> integers = new HashMap<>();
+        HashMap<String, Boolean> booleans = new HashMap<>();
+
+        boolean ret = false;
+
+        for (var stmt : node.getChildren()) {
+            Kind kind;
+            try {
+                kind = Kind.fromString(stmt.getKind());
+                if (!kind.isStmt()) continue;
+            } catch (Exception ignored) {
+                continue;
+            }
+
+            if (kind.isAssign()) {
+                var var = stmt.getChild(0).get("name");
+                var expr = stmt.getChild(stmt.getNumChildren() - 1);
+                ret |= addAndReplace(var, expr, integers, booleans);
+            }
+            if (stmt.isInstance(RETURN_STMT)) {
+                var expr = stmt.getChild(stmt.getNumChildren() - 1);
+                ret |= tryReplace(expr, integers, booleans);
+            }
+        }
+
+        return false;
+    }
+
+    private boolean tryReplace(JmmNode expr, HashMap<String, Integer> integers, HashMap<String, Boolean> booleans) {
+        if (expr.isInstance(PAREN_EXPR)) {
+            return tryReplace(expr.getChild(0), integers, booleans);
+        }
+        if (expr.isInstance(UNARY_EXPR)) {
+            return tryReplace(expr.getChild(0), integers, booleans);
+        }
+        if (expr.isInstance(BINARY_EXPR)) {
+            return tryReplace(expr.getChild(0), integers, booleans) ||
+                    tryReplace(expr.getChild(1), integers, booleans);
+        }
+        if (expr.isInstance(VAR_REF_EXPR)) {
+            return replaceVar(expr, integers, booleans);
+        }
+
+        return false;
+    }
+
+    private boolean replaceVar(JmmNode expr, HashMap<String, Integer> integers, HashMap<String, Boolean> booleans) {
+        JmmNode parent = expr.getParent();
+        String name = expr.get("name");
+        AJmmNode add;
+
+        if (integers.containsKey(name)) {
+            add = new JmmNodeImpl(INTEGER_LITERAL.toString());
+            add.put("value", integers.get(name).toString());
+        } else if (booleans.containsKey(name)) {
+            add = new JmmNodeImpl(BOOLEAN_LITERAL.toString());
+            add.put("value", booleans.get(name).toString());
+        } else {
+            return false;
+        }
+
+        int idx = expr.getIndexOfSelf();
+        expr.detach();
+        parent.add(add, idx);
+        return true;
+    }
+
+    private boolean addAndReplace(String var, JmmNode expr, HashMap<String, Integer> integers, HashMap<String, Boolean> booleans) {
+        if (expr.isInstance(INTEGER_LITERAL)) {
+            integers.put(var, Integer.parseInt(expr.get("value")));
+            return false;   // did not replace constant
+        }
+        if (expr.isInstance(BOOLEAN_LITERAL)) {
+            booleans.put(var, Boolean.parseBoolean(expr.get("value")));
+            return false;   // did not replace constant
+        }
+        if (expr.isInstance(PAREN_EXPR)) {
+            return addAndReplace(var, expr.getChild(0), integers, booleans);
+        }
+        if (expr.isInstance(UNARY_EXPR)) {
+            return addAndReplace(var, expr.getChild(0), integers, booleans);
+        }
+        if (expr.isInstance(BINARY_EXPR)) {
+            return addAndReplace(var, expr.getChild(0), integers, booleans) ||
+                    addAndReplace(var, expr.getChild(1), integers, booleans);
+        }
+        if (expr.isInstance(VAR_REF_EXPR)) {
+            // if something like i = 1; i = i + 1; cannot propagate i;
+            if (var.equals(expr.get("name"))) return false;
+            return replaceVar(expr, integers, booleans);
+        }
 
         return false;
     }
@@ -87,7 +192,7 @@ public class JmmOptimizationImpl implements JmmOptimization {
 
     private boolean foldExpr(JmmNode node, SymbolTable table) {
         JmmNode expr = node.getChild(node.getNumChildren() - 1);
-        
+
         if (expr.isInstance(INTEGER_LITERAL) || expr.isInstance(BOOLEAN_LITERAL)) return false;
         if (!canEvaluate(expr)) return false;
 
