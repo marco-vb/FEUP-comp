@@ -4,14 +4,13 @@ import org.specs.comp.ollir.*;
 import org.specs.comp.ollir.tree.TreeNode;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
 import pt.up.fe.comp.jmm.report.Report;
+import pt.up.fe.comp2024.optimization.OptUtils;
 import pt.up.fe.specs.util.classmap.FunctionClassMap;
 import pt.up.fe.specs.util.exceptions.NotImplementedException;
 import pt.up.fe.specs.util.utilities.StringLines;
 
 import java.rmi.server.ExportException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.specs.comp.ollir.ElementType.*;
@@ -26,6 +25,9 @@ public class JasminGenerator {
 
     private static final String NL = "\n";
     private static final String TAB = "    ";
+    private static final Set<OperationType> comparators = Set.of(
+            LTE, LTH, GTH, GTE, EQ, NEQ
+    );
 
     private final OllirResult ollirResult;
     private final HashMap<String, String> importFullNames = new HashMap<>();
@@ -111,6 +113,7 @@ public class JasminGenerator {
             }
         }
 
+        System.out.println(formatted.toString());
         return formatted.toString();
     }
 
@@ -670,8 +673,9 @@ public class JasminGenerator {
         code.append(generators.apply(binaryOp.getLeftOperand()));
         code.append(generators.apply(binaryOp.getRightOperand()));
 
+        OperationType type = binaryOp.getOperation().getOpType();
         // apply operation
-        var op = switch (binaryOp.getOperation().getOpType()) {
+        var op = switch (type) {
             case ADD -> "iadd";
             case MUL -> "imul";
             case SUB, LTE, LTH, GTH, GTE, EQ, NEQ -> "isub";
@@ -683,6 +687,26 @@ public class JasminGenerator {
         };
 
         code.append(op).append(NL);
+
+        if (comparators.contains(type)) {
+            String ifInst = switch (type) {
+                case LTE -> "ifle ";
+                case LTH -> "iflt ";
+                case GTE -> "ifge ";
+                case GTH -> "ifgt ";
+                case EQ -> "ifeq ";
+                case NEQ -> "ifne ";
+                default -> throw new NotImplementedException(type);
+            };
+
+            String trueLabel = OptUtils.getLabel("true");
+            String endLabel = OptUtils.getLabel("end");
+
+            code.append(ifInst).append(trueLabel).append("\n");
+            code.append("iconst_0\ngoto ").append(endLabel).append("\n");
+            code.append(trueLabel).append(":\niconst_1\n");
+            code.append(endLabel).append(":\npop\n");
+        }
 
         updateStack(-1);
 
