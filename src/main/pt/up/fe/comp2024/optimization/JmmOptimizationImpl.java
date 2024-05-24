@@ -6,11 +6,14 @@ import pt.up.fe.comp.jmm.analysis.JmmSemanticsResult;
 import pt.up.fe.comp.jmm.analysis.table.Symbol;
 import pt.up.fe.comp.jmm.analysis.table.SymbolTable;
 import pt.up.fe.comp.jmm.analysis.table.Type;
+import pt.up.fe.comp.jmm.report.Report;
 import pt.up.fe.comp.jmm.ast.AJmmNode;
 import pt.up.fe.comp.jmm.ast.JmmNode;
 import pt.up.fe.comp.jmm.ast.JmmNodeImpl;
 import pt.up.fe.comp.jmm.ollir.JmmOptimization;
 import pt.up.fe.comp.jmm.ollir.OllirResult;
+import pt.up.fe.comp.jmm.report.ReportType;
+import pt.up.fe.comp.jmm.report.Stage;
 import pt.up.fe.comp2024.CompilerConfig;
 import pt.up.fe.comp2024.ast.Kind;
 import pt.up.fe.comp2024.ast.TypeUtils;
@@ -22,8 +25,6 @@ import java.util.*;
 public class JmmOptimizationImpl implements JmmOptimization {
 
     ArrayList<Kind> assignments;
-
-    private boolean optRegs = false;
 
     public JmmOptimizationImpl() {
         assignments = new ArrayList<>();
@@ -50,7 +51,7 @@ public class JmmOptimizationImpl implements JmmOptimization {
             return ollirResult;
         } else {
             optimizeRegisters(ollirResult);
-            int mx = 1;
+            int mx = 0;
 
             for (var method : ollirResult.getOllirClass().getMethods()) {
                 var VT = method.getVarTable();
@@ -59,9 +60,16 @@ public class JmmOptimizationImpl implements JmmOptimization {
                     mx = Math.max(mx, val);
                 }
             }
-
-            if (mx > n) {
-                // error
+            
+            if (mx + 1 > n) {
+                var reports = ollirResult.getReports();
+                reports.add(new Report(
+                        ReportType.ERROR,
+                        Stage.OPTIMIZATION,
+                        -1,
+                        -1,
+                        "Need at least " + (mx + 1) + " registers.\n"
+                ));
             }
         }
         return ollirResult;
