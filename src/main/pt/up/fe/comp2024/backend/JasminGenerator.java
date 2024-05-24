@@ -699,13 +699,13 @@ public class JasminGenerator {
                 default -> throw new NotImplementedException(type);
             };
 
-            String trueLabel = OptUtils.getLabel("true");
-            String endLabel = OptUtils.getLabel("end");
+            String trueLabel = OptUtils.getLabel("L_fact");
+            String endLabel = OptUtils.getLabel("L_end");
 
             code.append(ifInst).append(trueLabel).append("\n");
             code.append("iconst_0\ngoto ").append(endLabel).append("\n");
             code.append(trueLabel).append(":\niconst_1\n");
-            code.append(endLabel).append(":\npop\n");
+            code.append(endLabel).append(":\n");
         }
 
         updateStack(-1);
@@ -813,17 +813,12 @@ public class JasminGenerator {
         if (condition instanceof BinaryOpInstruction binaryOp) {
             code.append(generators.apply(condition));
             OperationType operation = binaryOp.getOperation().getOpType();
-
-            ifType = switch (operation) {
-                case LTE -> "ifle ";
-                case LTH -> "iflt ";
-                case GTE -> "ifge ";
-                case GTH -> "ifgt ";
-                case EQ -> "ifeq ";
-                case NEQ -> "ifne ";
-                default -> throw new NotImplementedException(operation);
-            };
+            ifType = "ifne ";
         } else if (condition instanceof UnaryOpInstruction unaryOp) {
+            var operand = unaryOp.getOperand();
+            code.append(generators.apply(operand));
+
+            // no need to add 1 and xor, just see if equals 0
             ifType = "ifeq ";
         }
 
